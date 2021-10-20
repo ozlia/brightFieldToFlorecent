@@ -24,7 +24,7 @@ def get_model(img_size):
     x = createTransposeConLayer(32, x)
     x = layers.UpSampling2D(2)(x)
     x = createTransposeConLayer(16, x)
-    outputs = layers.Conv2D(3, 3, activation="sigmoid", padding="same")(x)
+    outputs = layers.Conv2D(1, 3, activation="sigmoid", padding="same")(x)
 
     model = keras.Model(inputs, outputs)
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics = ["accuracy"])
