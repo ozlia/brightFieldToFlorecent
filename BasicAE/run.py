@@ -5,7 +5,7 @@ img_size = (128, 128)
 num_classes = 3
 
 org_type = "Mitochondria/"
-data_input, data_output = data_prepere.separate_data(data_prepere.load(org_type))
+data_input, data_output = data_prepere.separate_data(data_prepere.load(org_type), img_size[0], img_size[1], num_classes)
 
 # Free up RAM in case the model definition cells were run multiple times
 keras.backend.clear_session()
@@ -23,5 +23,5 @@ test_data_output = data_output[train_number:]
 callbacks = [
     keras.callbacks.ModelCheckpoint("BasicAEModel.h5", save_best_only=True)
 ]
-model.fit(train_data_input, train_data_output, epochs=1, shuffle=True, callbacks=callbacks)
+model.fit(train_data_input, train_data_output, epochs=100, shuffle=True, callbacks=callbacks)
 model.save("basicAE/model/")
