@@ -3,7 +3,8 @@ from keras import layers
 from keras.models import Sequential 
 
 def get_model(img_size):
-    inputs = keras.Input(shape = img_size + (3,))
+    inputs = keras.Input(shape = img_size + (3,)) ## (128, 128, 3)
+
 #     ### [First half of the network: downsampling inputs] ###
     x = createConLayer(16, inputs)
     x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
@@ -24,7 +25,7 @@ def get_model(img_size):
     x = createTransposeConLayer(32, x)
     x = layers.UpSampling2D(2)(x)
     x = createTransposeConLayer(16, x)
-    outputs = layers.Conv2D(1, 3, activation="sigmoid", padding="same")(x)
+    outputs = layers.Conv2D(3, 3, activation="sigmoid", padding="same")(x)
 
     model = keras.Model(inputs, outputs)
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics = ["accuracy"])

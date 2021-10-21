@@ -26,8 +26,9 @@ test_data_input = data_input[train_number:]
 test_data_output = data_output[train_number:]
 
 train_X,valid_X,train_label,valid_label = train_test_split(train_data_input, train_data_output, test_size=0.2, random_state=13)
+
 callbacks = [
     keras.callbacks.ModelCheckpoint("BasicAEModel.h5", save_best_only=True)
 ]
-model.fit(train_X, train_label, batch_size=batch_size,epochs=epochs,verbose=1,validation_data=(valid_X, valid_label), callbacks=callbacks)
+model.fit(train_X, train_label, batch_size=batch_size,epochs=epochs, verbose=1, validation_data=(valid_X, valid_label), callbacks=callbacks)
 model.save("basicAE/model/")
