@@ -30,5 +30,12 @@ train_X,valid_X,train_label,valid_label = train_test_split(train_data_input, tra
 callbacks = [
     keras.callbacks.ModelCheckpoint("BasicAEModel.h5", save_best_only=True)
 ]
-model.fit(train_X, train_label, batch_size=batch_size,epochs=epochs, verbose=1, validation_data=(valid_X, valid_label), callbacks=callbacks)
-model.save("basicAE/model/")
+# model.fit(train_X, train_label, batch_size=batch_size,epochs=epochs, verbose=1, validation_data=(valid_X, valid_label), callbacks=callbacks)
+# model.save("basicAE/model/")
+
+model = keras.models.load_model('BasicAEModel.h5')
+# Evaluate the model on the test data using `evaluate`
+print("Evaluate on test data")
+results = model.evaluate(test_data_input, test_data_output, batch_size=batch_size)
+print("test loss, test acc:", results)
+
