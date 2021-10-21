@@ -27,7 +27,7 @@ def get_model(img_size):
     outputs = layers.Conv2D(1, 3, activation="sigmoid", padding="same")(x)
 
     model = keras.Model(inputs, outputs)
-    model.compile(optimizer="adam", loss="mean_squared_error", metrics = ["accuracy"])
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics = ["accuracy"])
     return model
 
 
