@@ -3,7 +3,7 @@ from aicsimageio import AICSImage
 import numpy as np
 import cv2
 
-photo_limit = 1000
+photo_limit = 50
 
 
 def load(org_type):
@@ -19,7 +19,8 @@ def load(org_type):
     ## files, x_pixels, y_pixels, color
 
 
-def separate_data(fovs, x, y, z):
+
+def separate_data(fovs, x, y,z=1):
     bright_field = []
     fluorescent = []
     for tiff in fovs:
@@ -42,6 +43,29 @@ def separate_data(fovs, x, y, z):
         img_resized = cv2.resize(img_2D_color, (x, y))  ## (128, 128, 1)
         fluorescent.append(img_resized)
 
-    bright_field_array = np.reshape(bright_field, (len(bright_field), x, y, z))
-    fluorescent_array = np.reshape(fluorescent, (len(fluorescent), x, y, z))
-    return bright_field_array, fluorescent_array
+    # bright_field_array = np.reshape(bright_field, (len(bright_field), x, y, z))
+    # fluorescent_array = np.reshape(fluorescent, (len(fluorescent), x, y, z))
+
+    # return np.array(bright_field), np.array(fluorescent)
+    return bright_field,fluorescent
+
+
+#TODO ValueError: not enough values to unpack (expected 2, got 0)
+def load_images_as_batches(brightfield_fluorescent_tiff_paths=None, batch_size=16,img_res=(128,128)):
+    if brightfield_fluorescent_tiff_paths is None:
+        raise ValueError('load batch was not given an array of paths to work with')
+
+    n_batches = int(len(brightfield_fluorescent_tiff_paths) / batch_size)
+    total_samples = n_batches * batch_size #<= actual amount because of int()
+
+    # Sample n_batches * batch_size from each path list so that model sees all
+    # samples from both domains
+    sampled_paths = np.random.choice(brightfield_fluorescent_tiff_paths, total_samples, replace=False)
+    total_brightfield, total_fluorescent = [], []
+    for i in range(n_batches - 1):
+        curr_batch = sampled_paths[i * batch_size : (i + 1) * batch_size]
+        curr_brightfield,curr_fluorescent = separate_data(fovs=curr_batch,x=img_res[0],y=img_res[1],z=1)
+        total_brightfield += curr_brightfield
+        total_fluorescent += curr_fluorescent
+    return np.array(total_brightfield), np.array(total_fluorescent)
+        # yield imgs_A, imgs_B

@@ -1,34 +1,28 @@
 
 from __future__ import print_function, division
-import scipy
-
-from keras.datasets import mnist
-from keras.layers import Input, Dense, Reshape, Flatten, Dropout, Concatenate
-from keras.layers import BatchNormalization, Activation, ZeroPadding2D
+from keras.layers import Input, Dropout, Concatenate
+from keras.layers import BatchNormalization
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D
-from keras.models import Sequential, Model
-from keras.optimizers import Adam
+from keras.models import Model
+from tensorflow.keras.optimizers import Adam
 import datetime
 import matplotlib.pyplot as plt
-import sys
-from data_loader import DataLoader
 import numpy as np
 import os
+
+from sklearn.model_selection import train_test_split
+
+from BasicAE import data_prepere
 
 
 class Pix2Pix():
     def __init__(self):
         # Input shape
-        self.img_rows = 256
-        self.img_cols = 256
+        self.img_rows = 128
+        self.img_cols = 128
         self.channels = 3
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
-
-        # Configure data loader
-        self.dataset_name = 'facades'
-        self.data_loader = DataLoader(dataset_name=self.dataset_name,
-                                      img_res=(self.img_rows, self.img_cols))
 
         # Calculate output shape of D (PatchGAN)
         patch = int(self.img_rows / 2 ** 4)
@@ -39,6 +33,12 @@ class Pix2Pix():
         self.df = 64
 
         optimizer = Adam(0.0002, 0.5)
+
+
+        #TODO get data
+        self.org_type = "Mitochondria/"
+        self.tiff_paths  = data_prepere.load(self.org_type),128, 128, 1
+        self.tiffs_train, self.tiffs_test = train_test_split(self.tiff_paths,test_size=0.2,random_state=13)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -143,7 +143,7 @@ class Pix2Pix():
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, batch_size=1, sample_interval=50):
+    def train(self, epochs, batch_size=50, sample_interval=50):
 
         start_time = datetime.datetime.now()
 
@@ -151,19 +151,21 @@ class Pix2Pix():
         valid = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
 
-        for epoch in range(epochs):
-            for batch_i, (imgs_A, imgs_B) in enumerate(self.data_loader.load_batch(batch_size)):
+        for epoch in range(epochs):#TODO read once and save instead of reading every epoch
+
+            for batch_i, (brightfield_batch, real_fluorescent) in enumerate(data_prepere.load_images_as_batches(brightfield_fluorescent_tiff_paths=self.tiffs_train,
+                                                batch_size=batch_size, img_res=(self.img_rows, self.img_cols))):
 
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
 
                 # Condition on B and generate a translated version
-                fake_A = self.generator.predict(imgs_B)
+                fake_fluorescent = self.generator.predict(brightfield_batch)
 
                 # Train the discriminators (original images = real / generated = Fake)
-                d_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], valid)
-                d_loss_fake = self.discriminator.train_on_batch([fake_A, imgs_B], fake)
+                d_loss_real = self.discriminator.train_on_batch([real_fluorescent, brightfield_batch], valid)
+                d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent, brightfield_batch], fake)
                 d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
                 # -----------------
@@ -171,13 +173,12 @@ class Pix2Pix():
                 # -----------------
 
                 # Train the generators
-                g_loss = self.combined.train_on_batch([imgs_A, imgs_B], [valid, imgs_A])
+                g_loss = self.combined.train_on_batch([real_fluorescent, brightfield_batch], [valid, real_fluorescent])
 
                 elapsed_time = datetime.datetime.now() - start_time
                 # Plot the progress
-                print("[Epoch %d/%d] [Batch %d/%d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (epoch, epochs,
+                print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (epoch, epochs,
                                                                                                       batch_i,
-                                                                                                      self.data_loader.n_batches,
                                                                                                       d_loss[0],
                                                                                                       100 * d_loss[1],
                                                                                                       g_loss[0],
@@ -188,30 +189,31 @@ class Pix2Pix():
                     self.sample_images(epoch, batch_i)
 
     def sample_images(self, epoch, batch_i):
-        os.makedirs('images/%s' % self.dataset_name, exist_ok=True)
-        r, c = 3, 3
+        os.makedirs('images', exist_ok=True)
+        num_imgs = 3
+        rows, cols = num_imgs, num_imgs
 
-        imgs_A, imgs_B = self.data_loader.load_data(batch_size=3, is_testing=True)
-        fake_A = self.generator.predict(imgs_B)
+        brightfield, fluorescent = data_prepere.load_images_as_batches(self.tiffs_test[:num_imgs],batch_size=num_imgs,img_res=(self.img_rows,self.img_cols))
+        gen_fluorescent = self.generator.predict(brightfield)
 
-        gen_imgs = np.concatenate([imgs_B, fake_A, imgs_A])
+        gen_imgs = np.concatenate([brightfield, gen_fluorescent, fluorescent])
 
         # Rescale images 0 - 1
         gen_imgs = 0.5 * gen_imgs + 0.5
 
-        titles = ['Condition', 'Generated', 'Original']
-        fig, axs = plt.subplots(r, c)
+        titles = ['brightfield', 'generated fluorescent', 'fluorescent']
+        fig, axs = plt.subplots(rows, cols)
         cnt = 0
-        for i in range(r):
-            for j in range(c):
+        for i in range(rows):
+            for j in range(cols):
                 axs[i, j].imshow(gen_imgs[cnt])
                 axs[i, j].set_title(titles[i])
                 axs[i, j].axis('off')
                 cnt += 1
-        fig.savefig("images/%s/%d_%d.png" % (self.dataset_name, epoch, batch_i))
+        fig.savefig("images/%d_%d.png" % (epoch, batch_i))
         plt.close()
 
 
 if __name__ == '__main__':
     gan = Pix2Pix()
-    gan.train(epochs=200, batch_size=1, sample_interval=200)
+    gan.train(epochs=100, batch_size=10, sample_interval=50)
