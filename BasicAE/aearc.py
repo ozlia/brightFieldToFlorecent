@@ -1,10 +1,9 @@
 from tensorflow import keras
 from keras import layers
-from keras.models import Sequential
 
 
 def get_model(img_size, color):
-    inputs = keras.Input(shape=img_size + (color,))  ## (128, 128, 3)
+    inputs = keras.Input(shape=img_size + (color,))  ## (128, 128, 1)
 
     ### [First half of the network: downsampling inputs] ###
     x = createConLayer(16, inputs)
@@ -36,7 +35,7 @@ def get_model(img_size, color):
 def createConLayer(dim, inputs):
     x = layers.Conv2D(dim, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(inputs)
     x = layers.BatchNormalization()(x)
-    x = layers.Conv2D(dim, (3, 3), activation="relu", strides=2, kernel_initializer="he_normal", padding="same")(x)
+    x = layers.Conv2D(dim, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
     x = layers.BatchNormalization()(x)
     return x
 

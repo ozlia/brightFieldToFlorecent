@@ -3,7 +3,7 @@ from aicsimageio import AICSImage
 import numpy as np
 import cv2
 
-photo_limit = 1000
+photo_limit = 1
 
 
 def load(org_type):
@@ -32,7 +32,7 @@ def separate_data(fovs, x, y, z):
         mid_slice = np.int(0.5 * img.shape[1])
         img_2D = img[n_channels - 1, mid_slice, :, :]  ## [brighfiled, slice_z, all 2D image]
         img_2D_norm = (img_2D - np.min(img_2D)) / (np.max(img_2D) - np.min(img_2D))
-        img_2D_color = np.expand_dims(img_2D_norm, axis=-1) ## (624, 928) -> ((624, 928, 1))
+        img_2D_color = np.expand_dims(img_2D_norm, axis=-1)  ## (624, 928) -> ((624, 928, 1))
         img_resized = cv2.resize(img_2D_color, (x, y))  ## (128, 128, 1)
         bright_field.append(img_resized)
 
