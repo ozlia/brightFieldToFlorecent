@@ -50,7 +50,6 @@ def separate_data(fovs, x, y,z=1):
     return bright_field,fluorescent
 
 
-#TODO ValueError: not enough values to unpack (expected 2, got 0)
 def load_images_as_batches(brightfield_fluorescent_tiff_paths=None, batch_size=16,img_res=(128,128)):
     if brightfield_fluorescent_tiff_paths is None:
         raise ValueError('load batch was not given an array of paths to work with')

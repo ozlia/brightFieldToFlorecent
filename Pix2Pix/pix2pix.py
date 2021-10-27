@@ -1,11 +1,10 @@
-
 from __future__ import print_function, division
-from keras.layers import Input, Dropout, Concatenate
-from keras.layers import BatchNormalization
+from tensorflow.keras.layers import Input, Dropout, Concatenate
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D
-from keras.models import Model
-from tensorflow.keras.optimizers import Adam
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,7 +13,6 @@ import os
 from sklearn.model_selection import train_test_split
 
 from BasicAE import data_prepere
-
 
 class Pix2Pix():
     def __init__(self):
@@ -37,7 +35,7 @@ class Pix2Pix():
 
         #TODO get data
         self.org_type = "Mitochondria/"
-        self.tiff_paths  = data_prepere.load(self.org_type),128, 128, 1
+        self.tiff_paths  = data_prepere.load(self.org_type)
         self.tiffs_train, self.tiffs_test = train_test_split(self.tiff_paths,test_size=0.2,random_state=13)
 
         # Build and compile the discriminator
