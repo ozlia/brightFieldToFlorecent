@@ -1,9 +1,8 @@
 import numpy as np
-from matplotlib import pyplot as plt
 from PIL import Image
 
 import data_prepere
-import aearc
+import aearcNew
 import keras
 from sklearn.model_selection import train_test_split
 
@@ -23,13 +22,13 @@ def evaluate(model, test_data_input, test_data_output):
 
 def train(data_input, data_output):
     # Build model
-    model = aearc.get_model(img_size, color=num_classes)
+    model = aearcNew.get_model(img_size, color=num_classes)
     model.summary()
 
-    train_data_input, test_data_input, train_data_output, test_data_output = train_test_split(data_input, data_output,
-                                                                                              test_size=0.2,
-                                                                                              random_state=13)
-    train_X, valid_X, train_label, valid_label = train_test_split(train_data_input, train_data_output, test_size=0.2,
+    # train_data_input, test_data_input, train_data_output, test_data_output = train_test_split(data_input, data_output,
+    #                                                                                           test_size=0.2,
+    #                                                                                           random_state=13)
+    train_X, valid_X, train_label, valid_label = train_test_split(data_input, data_output, test_size=0.2,
                                                                   random_state=13)
 
     callbacks = [
@@ -43,8 +42,8 @@ def train(data_input, data_output):
 
 img_size = (128, 128)
 num_classes = 1
-batch_size = 16
-epochs = 100
+batch_size = 28
+epochs = 1000
 
 org_type = "Mitochondria/"
 data_input, data_output = data_prepere.separate_data(data_prepere.load(org_type), img_size[0], img_size[1], num_classes)
@@ -52,7 +51,7 @@ data_input, data_output = data_prepere.separate_data(data_prepere.load(org_type)
 # Free up RAM in case the model definition cells were run multiple times
 keras.backend.clear_session()
 
-# train(data_input, data_output)
+train(data_input, data_output)
 model = keras.models.load_model('/home/ozlia/basicAE/model/')
 
 # Generate predictions (probabilities -- the output of the last layer)
