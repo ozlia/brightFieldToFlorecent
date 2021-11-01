@@ -8,9 +8,9 @@ from sklearn.model_selection import train_test_split
 
 
 def save_img(data_input, data_output, predictions):
-    Image.fromarray(np.squeeze(data_input)*255).convert('L').save('/home/ozlia/prediction/input.png')
-    Image.fromarray(np.squeeze(predictions)*255).convert('L').save('/home/ozlia/prediction/prediction.png')
-    Image.fromarray(np.squeeze(data_output)*255).convert('L').save('/home/ozlia/prediction/orginal.png')
+    Image.fromarray(np.squeeze(data_input)*255).convert('L').save('/home/ozlia/prediction2D/input.png')
+    Image.fromarray(np.squeeze(predictions)*255).convert('L').save('/home/ozlia/prediction2D/prediction.png')
+    Image.fromarray(np.squeeze(data_output)*255).convert('L').save('/home/ozlia/prediction2D/orginal.png')
 
 
 def evaluate(model, test_data_input, test_data_output):
@@ -32,18 +32,18 @@ def train(data_input, data_output):
                                                                   random_state=13)
 
     callbacks = [
-        keras.callbacks.ModelCheckpoint("/home/ozlia/BasicAEModel.h5", save_best_only=True)
+        keras.callbacks.ModelCheckpoint("/home/ozlia/BasicAEModel2D.h5", save_best_only=True)
     ]
     model.fit(train_X, train_label, batch_size=batch_size, epochs=epochs, verbose=1,
               validation_data=(valid_X, valid_label),
               callbacks=callbacks)
-    model.save("/home/ozlia/basicAE/model/")
+    model.save("/home/ozlia/basicAE/model2D/")
 
 
 img_size = (128, 128)
 num_classes = 1
 batch_size = 28
-epochs = 1000
+epochs = 100
 
 org_type = "Mitochondria/"
 data_input, data_output = data_prepere.separate_data(data_prepere.load(org_type), img_size[0], img_size[1], num_classes)
