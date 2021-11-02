@@ -3,12 +3,13 @@ from tensorflow.keras.layers import Input, Dropout, Concatenate
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import UpSampling2D, Conv2D
+from tensorflow.keras.layers import LeakyReLU
+from tensorflow.keras.layers import UpSampling2D, Conv2D
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import sys
 
 from sklearn.model_selection import train_test_split
 
@@ -19,7 +20,7 @@ class Pix2Pix():
         # Input shape
         self.img_rows = 128
         self.img_cols = 128
-        self.channels = 3
+        self.channels = 1
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
 
         # Calculate output shape of D (PatchGAN)
@@ -159,10 +160,11 @@ class Pix2Pix():
                 # ---------------------
 
                 # Condition on B and generate a translated version
-                fake_fluorescent = self.generator.predict(brightfield_batch)
+                # fake_fluorescent = self.generator.predict_on_batch(brightfield_batch) #TODO
 
                 # Train the discriminators (original images = real / generated = Fake)
                 d_loss_real = self.discriminator.train_on_batch([real_fluorescent, brightfield_batch], valid)
+                sys.exit(-1)
                 d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent, brightfield_batch], fake)
                 d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
@@ -183,8 +185,8 @@ class Pix2Pix():
                                                                                                       elapsed_time))
 
                 # If at save interval => save generated image samples
-                if batch_i % sample_interval == 0:
-                    self.sample_images(epoch, batch_i)
+                # if batch_i % sample_interval == 0:
+                self.sample_images(epoch, batch_i)
 
     def sample_images(self, epoch, batch_i):
         os.makedirs('images', exist_ok=True)
@@ -214,4 +216,4 @@ class Pix2Pix():
 
 if __name__ == '__main__':
     gan = Pix2Pix()
-    gan.train(epochs=100, batch_size=10, sample_interval=50)
+    gan.train(epochs=1, batch_size=10, sample_interval=50)
