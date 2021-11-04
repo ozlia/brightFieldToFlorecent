@@ -151,20 +151,19 @@ class Pix2Pix():
         fake = np.zeros((batch_size,) + self.disc_patch)
 
         for epoch in range(epochs):#TODO read once and save instead of reading every epoch
-
             for batch_i, (brightfield_batch, real_fluorescent) in enumerate(data_prepere.load_images_as_batches(brightfield_fluorescent_tiff_paths=self.tiffs_train,
-                                                batch_size=batch_size, img_res=(self.img_rows, self.img_cols))):
+                                                 batch_size=batch_size, img_res=(self.img_rows, self.img_cols),
+                                                 sampling=False)):
 
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
 
                 # Condition on B and generate a translated version
-                # fake_fluorescent = self.generator.predict_on_batch(brightfield_batch) #TODO
+                fake_fluorescent = self.generator.predict_on_batch(brightfield_batch) #TODO predict>?
 
                 # Train the discriminators (original images = real / generated = Fake)
                 d_loss_real = self.discriminator.train_on_batch([real_fluorescent, brightfield_batch], valid)
-                sys.exit(-1)
                 d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent, brightfield_batch], fake)
                 d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
@@ -186,14 +185,14 @@ class Pix2Pix():
 
                 # If at save interval => save generated image samples
                 # if batch_i % sample_interval == 0:
-                self.sample_images(epoch, batch_i)
+                # self.sample_images(epoch, batch_i)
 
     def sample_images(self, epoch, batch_i):
         os.makedirs('images', exist_ok=True)
         num_imgs = 3
         rows, cols = num_imgs, num_imgs
 
-        brightfield, fluorescent = data_prepere.load_images_as_batches(self.tiffs_test[:num_imgs],batch_size=num_imgs,img_res=(self.img_rows,self.img_cols))
+        brightfield, fluorescent = data_prepere.load_images_as_batches(self.tiffs_test[:num_imgs],batch_size=num_imgs,img_res=(self.img_rows,self.img_cols),sampling=True)
         gen_fluorescent = self.generator.predict(brightfield)
 
         gen_imgs = np.concatenate([brightfield, gen_fluorescent, fluorescent])

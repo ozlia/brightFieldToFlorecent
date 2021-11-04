@@ -3,7 +3,7 @@ from aicsimageio import AICSImage
 import numpy as np
 import cv2
 
-photo_limit = 10
+photo_limit = 20
 
 
 def load(org_type):
@@ -51,7 +51,8 @@ def separate_data(fovs, x, y,z=1):
 
 
 def load_images_as_batches(brightfield_fluorescent_tiff_paths=None, batch_size=16,img_res=(128,128),sampling=False):
-    if brightfield_fluorescent_tiff_paths is None:
+
+    if brightfield_fluorescent_tiff_paths is None or not brightfield_fluorescent_tiff_paths:
         raise ValueError('load batch was not given an array of paths to work with')
 
     if sampling:
@@ -62,26 +63,17 @@ def load_images_as_batches(brightfield_fluorescent_tiff_paths=None, batch_size=1
         total_samples = n_batches * batch_size
 
 
-
-
-
     # Sample n_batches * batch_size from each path list so that model sees all
     # samples from both domains
     sampled_paths = np.random.choice(brightfield_fluorescent_tiff_paths, total_samples, replace=False)
-    total_brightfield, total_fluorescent = [], []
-    for i in range(n_batches - 1):
+    # total_brightfield, total_fluorescent = [], []
+    for i in range(n_batches):
         curr_batch = sampled_paths[i * batch_size : (i + 1) * batch_size]
         curr_brightfield,curr_fluorescent = separate_data(fovs=curr_batch,x=img_res[0],y=img_res[1],z=1)
-        total_brightfield += curr_brightfield
-        total_fluorescent += curr_fluorescent
+        # total_brightfield += curr_brightfield
+        # total_fluorescent += curr_fluorescent
 
-        # bright_field_array = np.reshape(curr_brightfield, (len(curr_brightfield), img_res[0], img_res[1], 1))
-        # fluorescent_array = np.reshape(curr_fluorescent, (len(curr_fluorescent), img_res[0], img_res[1], 1))
-        # yield bright_field_array,fluorescent_array
-        # if not curr_brightfield or not curr_fluorescent:
-        #     continue
         yield np.array(curr_brightfield),np.array(curr_fluorescent)
 
     # return np.array(total_brightfield), np.array(total_fluorescent)
 
-        # yield imgs_A, imgs_B
