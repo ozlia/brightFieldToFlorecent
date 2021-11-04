@@ -54,26 +54,21 @@ def load_images_as_batches(brightfield_fluorescent_tiff_paths=None, batch_size=1
 
     if brightfield_fluorescent_tiff_paths is None or not brightfield_fluorescent_tiff_paths:
         raise ValueError('load batch was not given an array of paths to work with')
-
-    if sampling:
-        n_batches = max(int(len(brightfield_fluorescent_tiff_paths) / batch_size),2)  #basically 1 but adjusted for loop
-        total_samples = min(n_batches * batch_size,len(brightfield_fluorescent_tiff_paths))
+    if not sampling:
+        return separate_data(fovs=brightfield_fluorescent_tiff_paths, x=img_res[0], y=img_res[1], z=1)
     else:
-        n_batches = int(len(brightfield_fluorescent_tiff_paths) / batch_size)
-        total_samples = n_batches * batch_size
-
-
-    # Sample n_batches * batch_size from each path list so that model sees all
-    # samples from both domains
-    sampled_paths = np.random.choice(brightfield_fluorescent_tiff_paths, total_samples, replace=False)
-    # total_brightfield, total_fluorescent = [], []
-    for i in range(n_batches):
-        curr_batch = sampled_paths[i * batch_size : (i + 1) * batch_size]
-        curr_brightfield,curr_fluorescent = separate_data(fovs=curr_batch,x=img_res[0],y=img_res[1],z=1)
-        # total_brightfield += curr_brightfield
-        # total_fluorescent += curr_fluorescent
-
-        yield np.array(curr_brightfield),np.array(curr_fluorescent)
+        n_batches = max(int(len(brightfield_fluorescent_tiff_paths) / batch_size),1)
+        total_samples = min(n_batches * batch_size,len(brightfield_fluorescent_tiff_paths))
+        # Sample n_batches * batch_size from each path list so that model sees all
+        # samples from both domains
+        sampled_paths = np.random.choice(brightfield_fluorescent_tiff_paths, total_samples, replace=False)
+        # total_brightfield, total_fluorescent = [], []
+        for i in range(n_batches):
+            curr_batch = sampled_paths[i * batch_size: (i + 1) * batch_size]
+            curr_brightfield, curr_fluorescent = separate_data(fovs=curr_batch, x=img_res[0], y=img_res[1], z=1)
+            # total_brightfield += curr_brightfield
+            # total_fluorescent += curr_fluorescent
+            yield np.array(curr_brightfield), np.array(curr_fluorescent)
 
     # return np.array(total_brightfield), np.array(total_fluorescent)
 
