@@ -130,3 +130,7 @@ dmypy.json
 
 # vs code
 .vscode
+
+*.xml
+temp_main.py
+*.iml
