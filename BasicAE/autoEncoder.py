@@ -1,8 +1,10 @@
 from tensorflow import keras
 from keras import layers
 
+from ICNN import ICNN
 
-class AutoEncoder:
+
+class AutoEncoder(ICNN):
 
     def __init__(self, input_dim=(128, 128, 1), batch_size=16, epochs=1000):
         inputs = keras.Input(shape=input_dim)
