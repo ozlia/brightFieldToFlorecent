@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 
 from BasicAE import data_prepere
 
-class Pix2Pix():
+class Pix2Pix:
     def __init__(self):
         # Input shape
         self.img_rows = 128
@@ -151,21 +151,19 @@ class Pix2Pix():
         fake = np.zeros((batch_size,) + self.disc_patch)
 
         for epoch in range(epochs):#TODO read once and save instead of reading every epoch
-            for batch_i, (brightfield_batch, real_fluorescent) in enumerate(data_prepere.load_images_as_batches(brightfield_fluorescent_tiff_paths=self.tiffs_train,
+            for batch_i, (brightfield_batch, real_fluorescent_batch) in enumerate(data_prepere.load_images_as_batches(brightfield_fluorescent_tiff_paths=self.tiffs_train,
                                                  batch_size=batch_size, img_res=(self.img_rows, self.img_cols),
                                                  sampling=False)):
-                self.sample_images(epoch, batch_i)
-                sys.exit(-14)
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
 
                 # Condition on B and generate a translated version
-                fake_fluorescent = self.generator.predict_on_batch(brightfield_batch) #TODO predict>?
+                fake_fluorescent_batch = self.generator.predict_on_batch(brightfield_batch) #TODO predict>?
 
                 # Train the discriminators (original images = real / generated = Fake)
-                d_loss_real = self.discriminator.train_on_batch([real_fluorescent, brightfield_batch], valid)
-                d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent, brightfield_batch], fake)
+                d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, brightfield_batch], valid)
+                d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, brightfield_batch], fake)
                 d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
                 # -----------------
@@ -173,7 +171,7 @@ class Pix2Pix():
                 # -----------------
 
                 # Train the generators
-                g_loss = self.combined.train_on_batch([real_fluorescent, brightfield_batch], [valid, real_fluorescent])
+                g_loss = self.combined.train_on_batch([real_fluorescent_batch, brightfield_batch], [valid, real_fluorescent_batch])
 
                 elapsed_time = datetime.datetime.now() - start_time
                 # Plot the progress
@@ -186,10 +184,11 @@ class Pix2Pix():
 
                 # If at save interval => save generated image samples
                 # if batch_i % sample_interval == 0:
-                # self.sample_images(epoch, batch_i)
+                self.sample_images(epoch, batch_i)
 
     def sample_images(self, epoch, batch_i):
-        os.makedirs('images', exist_ok=True)
+        images_root_dir = os.path.join('/home/tomrob','pix2pix','images')
+        os.makedirs(images_root_dir, exist_ok=True)
         num_imgs = 3
         rows, cols = num_imgs, num_imgs
         brightfield, fluorescent =  data_prepere.load_images_as_batches(self.tiffs_test[:num_imgs],batch_size=num_imgs,img_res=(self.img_rows,self.img_cols),sampling=True)
@@ -208,7 +207,9 @@ class Pix2Pix():
                 axs[i, j].set_title(titles[i])
                 axs[i, j].axis('off')
                 cnt += 1
-        fig.savefig("images/%d_%d.png" % (epoch, batch_i))
+        fig_name = f'{epoch}_{batch_i}.png'
+        fig.savefig(os.path.join(images_root_dir,fig_name))
+        plt.show()
         plt.close()
 
 

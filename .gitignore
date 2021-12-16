@@ -132,6 +132,6 @@ dmypy.json
 .vscode
 
 *.xml
-*/*.xml
+.idea/*.xml
 temp_main.py
 */*.iml
