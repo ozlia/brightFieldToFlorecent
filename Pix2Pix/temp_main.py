@@ -8,8 +8,14 @@
 
 import pandas as pd
 
-df = pd.DataFrame(columns=['first_col','second_col'])
-new_row = dict(zip(df.columns,[1,2]))
-df.loc[df.shape[0]] = new_row
-df.loc[df.shape[0]] = new_row
-print('?')
+col_dict = {
+    'first_col': [],
+    'second_col' : []
+}
+
+for k, v in zip(col_dict.keys(), [1,2]):
+    col_dict[k].append(v)
+
+df = pd.DataFrame(col_dict)
+with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+    print(df)

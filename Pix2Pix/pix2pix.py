@@ -23,7 +23,8 @@ from BasicAE import data_prepere
 class Pix2Pix:
     def __init__(self):
         self.root_dir = '/home/tomrob/pix2pix'
-        self.progress_report : pd.DataFrame = pd.DataFrame(columns=['Epoch', 'Batch', 'G Loss', 'D Loss', 'D Acc'])
+        # self.progress_report : pd.DataFrame = pd.DataFrame(columns=['Epoch', 'Batch', 'G Loss', 'D Loss', 'D Acc'])
+        self.progress_report = {k : [] for k in ['Epoch', 'Batch', 'G Loss', 'D Loss'] }
         # os.mkdir(self.root_dir)
 
         # Input shape
@@ -234,7 +235,9 @@ class Pix2Pix:
         save_model(model=self.discriminator, filepath=os.path.join(models_root_dir, 'discriminator_model'))
 
         time = f"{datetime.datetime.now().strftime('%d-%m-%Y, %H:%M:%S')}.csv"
-        self.progress_report.to_csv(os.path.join(progress_root_dir,time))
+
+        progress_report : pd.DataFrame = pd.DataFrame(data=self.progress_report)
+        progress_report.to_csv(path_or_buf=os.path.join(progress_root_dir,time))
 
     def load_model(self, target_path=None):
         if not target_path:
@@ -248,18 +251,18 @@ class Pix2Pix:
     def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time):
         elapsed_time = datetime.datetime.now() - start_time
         # Plot the progress
-        progress_metrics = [curr_epoch, curr_batch, d_loss[0], g_loss[0]]
-        progress_report = dict(zip(self.progress_report.columns,progress_metrics))
-        print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
-                                                                                           curr_batch,
-                                                                                           d_loss[0],
-                                                                                           100 * d_loss[1],
-                                                                                           g_loss[0],
-                                                                                           elapsed_time))
-        self.progress_report.loc[self.progress_report.shape[0]] = progress_report
+        for k,v in zip(self.progress_report.keys(),[curr_epoch,curr_batch, g_loss[0], d_loss[0]]):
+            self.progress_report[k].append(v)
+
+        # print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
+        #                                                                                    curr_batch,
+        #                                                                                    d_loss[0],
+        #                                                                                    100 * d_loss[1],
+        #                                                                                    g_loss[0],
+        #                                                                                    elapsed_time))
 
 
 if __name__ == '__main__':
     gan = Pix2Pix()
-    gan.train(epochs=2, batch_size=3, sample_interval_in_batches=2)
+    gan.train(epochs=1, batch_size=6, sample_interval_in_batches=10)
     gan.save_model_and_progress_report()

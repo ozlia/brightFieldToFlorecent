@@ -20,12 +20,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2b274c9b-223d-436d-9cce-ffe79bba5dd5" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/brightFieldToFlorecent.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/brightFieldToFlorecent.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deployment.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/sshConfigs.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/BasicAE/data_prepere.py" beforeDir="false" afterPath="$PROJECT_DIR$/BasicAE/data_prepere.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pix2Pix/pix2pix.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pix2Pix/pix2pix.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pix2Pix/temp_main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pix2Pix/temp_main.py" afterDir="false" />
     </list>
@@ -146,7 +141,7 @@
       <workItem from="1635149326905" duration="4485000" />
       <workItem from="1635153873851" duration="4211000" />
       <workItem from="1639730221134" duration="5840000" />
-      <workItem from="1639746124367" duration="12520000" />
+      <workItem from="1639746124367" duration="13716000" />
     </task>
     <servers />
   </component>
@@ -183,28 +178,28 @@
     </state>
     <state x="548" y="186" key="FileChooserDialogImpl/0.0.1536.864/-1440.0.1440.900@0.0.1536.864" timestamp="1635163011289" />
     <state x="548" y="186" key="FileChooserDialogImpl/0.0.1536.864@0.0.1536.864" timestamp="1634806791151" />
-    <state width="1397" height="291" key="GridCell.Tab.0.bottom" timestamp="1639758682526">
+    <state width="1397" height="272" key="GridCell.Tab.0.bottom" timestamp="1639759792312">
       <screen x="-1440" y="0" width="1440" height="900" />
     </state>
-    <state width="1397" height="291" key="GridCell.Tab.0.bottom/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639758682526" />
+    <state width="1397" height="272" key="GridCell.Tab.0.bottom/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639759792312" />
     <state width="745" height="272" key="GridCell.Tab.0.bottom/0.0.1536.864/-1440.0.1440.900@0.0.1536.864" timestamp="1639674357354" />
     <state width="1493" height="286" key="GridCell.Tab.0.bottom/0.0.1536.864@0.0.1536.864" timestamp="1634830584415" />
-    <state width="1397" height="291" key="GridCell.Tab.0.center" timestamp="1639758682525">
+    <state width="1397" height="272" key="GridCell.Tab.0.center" timestamp="1639759792312">
       <screen x="-1440" y="0" width="1440" height="900" />
     </state>
-    <state width="1397" height="291" key="GridCell.Tab.0.center/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639758682525" />
+    <state width="1397" height="272" key="GridCell.Tab.0.center/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639759792312" />
     <state width="745" height="272" key="GridCell.Tab.0.center/0.0.1536.864/-1440.0.1440.900@0.0.1536.864" timestamp="1639674357354" />
     <state width="1493" height="286" key="GridCell.Tab.0.center/0.0.1536.864@0.0.1536.864" timestamp="1634830584415" />
-    <state width="1397" height="291" key="GridCell.Tab.0.left" timestamp="1639758682525">
+    <state width="1397" height="272" key="GridCell.Tab.0.left" timestamp="1639759792311">
       <screen x="-1440" y="0" width="1440" height="900" />
     </state>
-    <state width="1397" height="291" key="GridCell.Tab.0.left/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639758682525" />
+    <state width="1397" height="272" key="GridCell.Tab.0.left/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639759792311" />
     <state width="745" height="272" key="GridCell.Tab.0.left/0.0.1536.864/-1440.0.1440.900@0.0.1536.864" timestamp="1639674357354" />
     <state width="1493" height="286" key="GridCell.Tab.0.left/0.0.1536.864@0.0.1536.864" timestamp="1634830584411" />
-    <state width="1397" height="291" key="GridCell.Tab.0.right" timestamp="1639758682526">
+    <state width="1397" height="272" key="GridCell.Tab.0.right" timestamp="1639759792312">
       <screen x="-1440" y="0" width="1440" height="900" />
     </state>
-    <state width="1397" height="291" key="GridCell.Tab.0.right/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639758682526" />
+    <state width="1397" height="272" key="GridCell.Tab.0.right/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639759792312" />
     <state width="745" height="272" key="GridCell.Tab.0.right/0.0.1536.864/-1440.0.1440.900@0.0.1536.864" timestamp="1639674357354" />
     <state width="1493" height="286" key="GridCell.Tab.0.right/0.0.1536.864@0.0.1536.864" timestamp="1634830584415" />
     <state width="1397" height="291" key="GridCell.Tab.1.bottom" timestamp="1639758682526">
@@ -227,10 +222,10 @@
     </state>
     <state width="1397" height="291" key="GridCell.Tab.1.right/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639758682526" />
     <state width="1493" height="277" key="GridCell.Tab.1.right/0.0.1536.864/-1440.0.1440.900@0.0.1536.864" timestamp="1635163012331" />
-    <state x="-1180" y="80" key="SettingsEditor" timestamp="1639746267458">
+    <state x="-1180" y="80" key="SettingsEditor" timestamp="1639759925186">
       <screen x="-1440" y="0" width="1440" height="900" />
     </state>
-    <state x="-1180" y="80" key="SettingsEditor/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639746267458" />
+    <state x="-1180" y="80" key="SettingsEditor/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639759925186" />
     <state x="277" y="77" key="SettingsEditor/0.0.1536.864/-1440.0.1440.900@0.0.1536.864" timestamp="1639674315820" />
     <state x="277" y="77" key="SettingsEditor/0.0.1536.864@0.0.1536.864" timestamp="1634809170560" />
     <state x="-903" y="364" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1639749483699">
@@ -251,26 +246,10 @@
     </state>
     <state x="-1057" y="190" width="672" height="678" key="search.everywhere.popup/0.0.1536.864/-1440.0.1440.900@-1440.0.1440.900" timestamp="1639757098240" />
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/Pix2Pix/pix2pix.py</url>
-          <line>264</line>
-          <option name="timeStamp" value="25" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/Pix2Pix/temp_main.py</url>
-          <line>12</line>
-          <option name="timeStamp" value="26" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
-  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/brightFieldToFlorecent$main.coverage" NAME="main Coverage Results" MODIFIED="1636392595444" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/browseTiffs" />
-    <SUITE FILE_PATH="coverage/brightFieldToFlorecent$temp_main.coverage" NAME="temp_main Coverage Results" MODIFIED="1639758630970" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Pix2Pix" />
+    <SUITE FILE_PATH="coverage/brightFieldToFlorecent$temp_main.coverage" NAME="temp_main Coverage Results" MODIFIED="1639759788518" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Pix2Pix" />
     <SUITE FILE_PATH="coverage/brightFieldToFlorecent$run.coverage" NAME="run Coverage Results" MODIFIED="1634819669676" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/BasicAE" />
-    <SUITE FILE_PATH="coverage/brightFieldToFlorecent$pix2pix.coverage" NAME="pix2pix Coverage Results" MODIFIED="1639758682492" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Pix2Pix" />
+    <SUITE FILE_PATH="coverage/brightFieldToFlorecent$pix2pix.coverage" NAME="pix2pix Coverage Results" MODIFIED="1639759792303" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Pix2Pix" />
   </component>
 </project>
