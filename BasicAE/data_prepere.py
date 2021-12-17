@@ -3,7 +3,7 @@ from aicsimageio import AICSImage
 import numpy as np
 import cv2
 
-photo_limit = 20
+photo_limit = 12
 
 
 def load(org_type):
@@ -46,29 +46,22 @@ def separate_data(fovs, x, y,z=1):
     # bright_field_array = np.reshape(bright_field, (len(bright_field), x, y, z))
     # fluorescent_array = np.reshape(fluorescent, (len(fluorescent), x, y, z))
 
-    # return np.array(bright_field), np.array(fluorescent)
-    return bright_field,fluorescent
+    return np.array(bright_field), np.array(fluorescent)
+    # return bright_field,fluorescent
 
 
-def load_images_as_batches(brightfield_fluorescent_tiff_paths=None, batch_size=16,img_res=(128,128),sampling=False):
+def load_images_as_batches(brightfield_fluorescent_tiff_paths=None, batch_size=16,img_res=(128,128),sample_size=-1):
 
-    if brightfield_fluorescent_tiff_paths is None or not brightfield_fluorescent_tiff_paths:
+    if not brightfield_fluorescent_tiff_paths:
         raise ValueError('load batch was not given an array of paths to work with')
-    if not sampling:
-        return separate_data(fovs=brightfield_fluorescent_tiff_paths, x=img_res[0], y=img_res[1], z=1)
+    # Sample n_batches * batch_size from each path list so that model sees all
+    elif sample_size > 0:
+        batch_size = sample_size
+        n_batches = 1
     else:
         n_batches = max(int(len(brightfield_fluorescent_tiff_paths) / batch_size),1)
-        total_samples = min(n_batches * batch_size,len(brightfield_fluorescent_tiff_paths))
-        # Sample n_batches * batch_size from each path list so that model sees all
-        # samples from both domains
-        sampled_paths = np.random.choice(brightfield_fluorescent_tiff_paths, total_samples, replace=False)
-        # total_brightfield, total_fluorescent = [], []
-        for i in range(n_batches):
-            curr_batch = sampled_paths[i * batch_size: (i + 1) * batch_size]
-            curr_brightfield, curr_fluorescent = separate_data(fovs=curr_batch, x=img_res[0], y=img_res[1], z=1)
-            # total_brightfield += curr_brightfield
-            # total_fluorescent += curr_fluorescent
-            yield np.array(curr_brightfield), np.array(curr_fluorescent)
-
-    # return np.array(total_brightfield), np.array(total_fluorescent)
+    for i in range(n_batches):
+        sampled_paths = np.random.choice(brightfield_fluorescent_tiff_paths, batch_size, replace=False)
+        # curr_batch = sampled_paths[i * batch_size: (i + 1) * batch_size]
+        yield separate_data(fovs=sampled_paths, x=img_res[0], y=img_res[1], z=1)
 

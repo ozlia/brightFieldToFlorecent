@@ -1,4 +1,7 @@
 from __future__ import print_function, division
+
+# import tensorflow.keras as keras
+from tensorflow.keras.models import load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.models import Model
@@ -10,13 +13,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
+import pandas as pd
 
 from sklearn.model_selection import train_test_split
 
 from BasicAE import data_prepere
 
+
 class Pix2Pix:
     def __init__(self):
+        self.root_dir = '/home/tomrob/pix2pix'
+        self.progress_report : pd.DataFrame = pd.DataFrame(columns=['Epoch', 'Batch', 'G Loss', 'D Loss', 'D Acc'])
+        # os.mkdir(self.root_dir)
+
         # Input shape
         self.img_rows = 128
         self.img_cols = 128
@@ -33,11 +42,10 @@ class Pix2Pix:
 
         optimizer = Adam(0.0002, 0.5)
 
-
-        #TODO get data
+        # TODO get data
         self.org_type = "Mitochondria/"
-        self.tiff_paths  = data_prepere.load(self.org_type)
-        self.tiffs_train, self.tiffs_test = train_test_split(self.tiff_paths,test_size=0.2,random_state=13)
+        self.tiff_paths = data_prepere.load(self.org_type)
+        self.tiffs_train, self.tiffs_test = train_test_split(self.tiff_paths, test_size=0.3, random_state=13)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -142,24 +150,24 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, batch_size=50, sample_interval=50):
-
+    def train(self, epochs, batch_size=50, sample_interval_in_batches=50):
         start_time = datetime.datetime.now()
 
         # Adversarial loss ground truths
         valid = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
 
-        for epoch in range(epochs):#TODO read once and save instead of reading every epoch
-            for batch_i, (brightfield_batch, real_fluorescent_batch) in enumerate(data_prepere.load_images_as_batches(brightfield_fluorescent_tiff_paths=self.tiffs_train,
-                                                 batch_size=batch_size, img_res=(self.img_rows, self.img_cols),
-                                                 sampling=False)):
+        for epoch in range(epochs):  # TODO read once and save instead of reading every epoch
+            for batch_i, (brightfield_batch, real_fluorescent_batch) in enumerate(
+                    data_prepere.load_images_as_batches(brightfield_fluorescent_tiff_paths=self.tiffs_train,
+                                                        batch_size=batch_size, img_res=(self.img_rows, self.img_cols))):
+
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
 
                 # Condition on B and generate a translated version
-                fake_fluorescent_batch = self.generator.predict_on_batch(brightfield_batch) #TODO predict>?
+                fake_fluorescent_batch = self.generator.predict(brightfield_batch)  # TODO predict>?
 
                 # Train the discriminators (original images = real / generated = Fake)
                 d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, brightfield_batch], valid)
@@ -171,34 +179,36 @@ class Pix2Pix:
                 # -----------------
 
                 # Train the generators
-                g_loss = self.combined.train_on_batch([real_fluorescent_batch, brightfield_batch], [valid, real_fluorescent_batch])
+                g_loss = self.combined.train_on_batch([real_fluorescent_batch, brightfield_batch],
+                                                      [valid, real_fluorescent_batch])
 
-                elapsed_time = datetime.datetime.now() - start_time
-                # Plot the progress
-                print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (epoch, epochs,
-                                                                                                      batch_i,
-                                                                                                      d_loss[0],
-                                                                                                      100 * d_loss[1],
-                                                                                                      g_loss[0],
-                                                                                                      elapsed_time))
+                self.document_progress(curr_epoch=epoch+1, total_epochs=epochs,curr_batch= batch_i,d_loss=d_loss,g_loss= g_loss,start_time=start_time)
+
 
                 # If at save interval => save generated image samples
-                # if batch_i % sample_interval == 0:
-                self.sample_images(epoch, batch_i)
+                if (batch_i + 1) % sample_interval_in_batches == 0:
+                    self.sample_images(epoch, batch_i)
+
+                break
+            break
 
     def sample_images(self, epoch, batch_i):
-        images_root_dir = os.path.join('/home/tomrob','pix2pix','images')
-        os.makedirs(images_root_dir, exist_ok=True)
+
+        images_root_dir = os.path.join(self.root_dir, 'images')
+        # os.makedirs(images_root_dir, exist_ok=True)
         num_imgs = 3
         rows, cols = num_imgs, num_imgs
-        brightfield, fluorescent =  data_prepere.load_images_as_batches(self.tiffs_test[:num_imgs],batch_size=num_imgs,img_res=(self.img_rows,self.img_cols),sampling=True)
-        gen_fluorescent = self.generator.predict(brightfield)
+        brightfield, fluorescent = data_prepere.load_images_as_batches(
+            brightfield_fluorescent_tiff_paths=self.tiffs_test,
+            img_res=(self.img_rows, self.img_cols),
+            sample_size=num_imgs).__next__()
+        gen_fluorescent = self.generator.predict_on_batch(brightfield)
         gen_imgs = np.concatenate([brightfield, np.squeeze(gen_fluorescent), fluorescent])
 
         # Rescale images 0 - 1
         gen_imgs = 0.5 * gen_imgs + 0.5
 
-        titles = ['brightfield', 'generated fluorescent', 'fluorescent']
+        titles = ['brightfield', 'gen fluorescent', ' real fluorescent']
         fig, axs = plt.subplots(rows, cols)
         cnt = 0
         for i in range(rows):
@@ -207,12 +217,49 @@ class Pix2Pix:
                 axs[i, j].set_title(titles[i])
                 axs[i, j].axis('off')
                 cnt += 1
-        fig_name = f'{epoch}_{batch_i}.png'
-        fig.savefig(os.path.join(images_root_dir,fig_name))
-        plt.show()
+        fig_path = os.path.join(images_root_dir, f'e{epoch}_b{batch_i}.png')
+        fig.savefig(fig_path)
+        # plt.show()
         plt.close()
+
+    def save_model_and_progress_report(self, target_path=None):
+        if not target_path:
+            target_path = os.path.join(self.root_dir)
+        models_root_dir = os.path.join(target_path, 'models')
+        progress_root_dir = os.path.join(target_path, 'progress_reports')
+        os.makedirs(progress_root_dir,exist_ok=True)
+        os.makedirs(models_root_dir,exist_ok=True)
+
+        save_model(model=self.combined, filepath=os.path.join(models_root_dir, 'generator_model'))
+        save_model(model=self.discriminator, filepath=os.path.join(models_root_dir, 'discriminator_model'))
+
+        time = f"{datetime.datetime.now().strftime('%d-%m-%Y, %H:%M:%S')}.csv"
+        self.progress_report.to_csv(os.path.join(progress_root_dir,time))
+
+    def load_model(self, target_path=None):
+        if not target_path:
+            target_path = os.path.join(self.root_dir, 'models')
+        # try:
+        self.combined = load_model(filepath=os.path.join(target_path, 'generator_model'))
+        self.discriminator = load_model(filepath=os.path.join(target_path, 'discriminator_model'))
+        # except:
+        # raise FileNotFoundError(f'Could not load models from path: {target_path}')
+
+    def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time):
+        elapsed_time = datetime.datetime.now() - start_time
+        # Plot the progress
+        progress_metrics = [curr_epoch, curr_batch, d_loss[0], g_loss[0]]
+        progress_report = dict(zip(self.progress_report.columns,progress_metrics))
+        print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
+                                                                                           curr_batch,
+                                                                                           d_loss[0],
+                                                                                           100 * d_loss[1],
+                                                                                           g_loss[0],
+                                                                                           elapsed_time))
+        self.progress_report.loc[self.progress_report.shape[0]] = progress_report
 
 
 if __name__ == '__main__':
     gan = Pix2Pix()
-    gan.train(epochs=1, batch_size=10, sample_interval=50)
+    gan.train(epochs=2, batch_size=3, sample_interval_in_batches=2)
+    gan.save_model_and_progress_report()
