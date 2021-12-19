@@ -1,23 +1,17 @@
 from __future__ import print_function, division
 
-# import tensorflow.keras as keras
-from tensorflow.keras.models import load_model, save_model
-from tensorflow.keras.layers import Input, Dropout, Concatenate
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.models import Model
+from Pix2Pix import data_prepere
+
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Model,load_model, save_model
+from tensorflow.keras.layers import Input, Dropout, Concatenate,BatchNormalization,LeakyReLU,UpSampling2D, Conv2D
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import LeakyReLU
-from tensorflow.keras.layers import UpSampling2D, Conv2D
+
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import sys
 import pandas as pd
-
-from sklearn.model_selection import train_test_split
-
-from BasicAE import data_prepere
 
 
 class Pix2Pix:
