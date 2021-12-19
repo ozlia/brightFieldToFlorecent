@@ -2,13 +2,14 @@ from aicsimageio import AICSImage
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-dir_type = "Mitochondria/"
-fovs = os.listdir("/storage/users/assafzar/fovs/" + dir_type)
+dir_type = "Mitochondria"
+root_dir = os.path.join("/storage/users/assafzar/fovs",dir_type)
+fovs = os.listdir(root_dir)
 
 counter = 9
-for tiff in fovs[9:]:
-    reader = AICSImage(
-        "/storage/users/assafzar/fovs/" + dir_type + tiff)
+for tiff in fovs[counter:counter+1]:
+    curr_tiff_name = os.path.join(root_dir,tiff)
+    reader = AICSImage(curr_tiff_name)
     img = reader.data
     # print(img.shape)
 

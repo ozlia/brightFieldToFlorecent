@@ -131,5 +131,7 @@ dmypy.json
 # vs code
 .vscode
 
-# pychram env
-.idea
+*.xml
+.idea/*.xml
+temp_main.py
+*/*.iml
