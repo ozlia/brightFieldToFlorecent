@@ -3,7 +3,7 @@ from aicsimageio import AICSImage
 import numpy as np
 import cv2
 
-photo_limit = 12
+photo_limit = 120
 
 
 def load(org_type):

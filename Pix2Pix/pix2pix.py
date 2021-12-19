@@ -190,9 +190,6 @@ class Pix2Pix:
                 if (batch_i + 1) % sample_interval_in_batches == 0:
                     self.sample_images(epoch, batch_i)
 
-                break
-            break
-
     def sample_images(self, epoch, batch_i):
 
         images_root_dir = os.path.join(self.root_dir, 'images')
@@ -264,5 +261,5 @@ class Pix2Pix:
 
 if __name__ == '__main__':
     gan = Pix2Pix()
-    gan.train(epochs=1, batch_size=6, sample_interval_in_batches=10)
+    gan.train(epochs=10, batch_size=16, sample_interval_in_batches=3)
     gan.save_model_and_progress_report()
