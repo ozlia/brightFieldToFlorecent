@@ -9,6 +9,7 @@ USER = getpass.getuser()
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY
+    global USER
     for i in range(0, 27):
         Image.fromarray(np.squeeze(input_patches[i]) * 255).convert('L').save(
             '/home/%s/%s/input_patch_%d.png' % (USER, DIRECTORY, i))
@@ -18,6 +19,7 @@ def save_entire_patch_series(input_patches, output_patches):
 
 def save_img(data_input, data_output, predictions):
     print("saving first image")
+    global USER
     global DIRECTORY
     if not os.path.exists(DIRECTORY):
         os.makedirs(DIRECTORY)
