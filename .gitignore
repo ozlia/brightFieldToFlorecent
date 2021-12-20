@@ -135,3 +135,7 @@ dmypy.json
 .idea/*.xml
 temp_main.py
 */*.iml
+
+# images
+.png
+prediction3D/
