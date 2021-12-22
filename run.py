@@ -9,7 +9,7 @@ from BasicAE.autoEncoder import AutoEncoder
 img_size = (128, 128, 1)
 batch_size = 28
 epochs = 100
-
+#hello
 org_type = "Mitochondria/"
 
 print("reading images")
