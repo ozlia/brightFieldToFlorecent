@@ -40,10 +40,10 @@ def separate_data(fovs, img_size):
     return bright_field_array, fluorescent_array
 
 
-def image2d_prep(img_2D, x, y):
+def image2d_prep(img_2D, x, y, z=1):
     img_2D_norm = (img_2D - np.min(img_2D)) / (np.max(img_2D) - np.min(img_2D))
     img_2D_color = np.expand_dims(img_2D_norm, axis=-1)  # (624, 928) -> ((624, 928, 1))
-    patches = patchify(img_2D_color, (x, y, 1), step=x)  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
+    patches = patchify(img_2D_color, (x, y, z), step=x)  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
 
     return resize_patch_list(patches) # resizes the patch such that (4, 7, 1, 128, 128, 1) -> (28, 128,128,1)
 

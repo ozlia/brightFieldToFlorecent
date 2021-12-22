@@ -2,7 +2,8 @@ from tensorflow import keras
 from keras import layers
 
 from ICNN import ICNN
-
+import getpass
+import os
 
 class AutoEncoder(ICNN):
 
@@ -33,11 +34,22 @@ class AutoEncoder(ICNN):
         self.batch_size = batch_size
         self.epochs = epochs
 
-    def train(self, train_x, train_label, valid_x=None, valid_label=None, model_dir="/home/ozlia/basicAE/model2D/"):
+        self.USER = getpass.getuser().split("@")[0]
+        print(self.USER)
+
+        self.dir = "/home/%s/%s" % (self.USER, "basicAE")
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
+
+    def train(self, train_x, train_label, valid_x=None, valid_label=None, model_dir="/model2D/"):
+        model_dir = self.dir + model_dir
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+
         model = self.model
         model.summary()
         callbacks = [
-            keras.callbacks.ModelCheckpoint("/home/ozlia/BasicAEModel2D.h5", save_best_only=True)
+            keras.callbacks.ModelCheckpoint("%s/BasicAEModel2D.h5" % self.dir, save_best_only=True)
         ]
         validation = (valid_x, valid_label) if valid_x and valid_label else None
         model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
@@ -63,10 +75,11 @@ class AutoEncoder(ICNN):
             q = 0
         return 0
 
-    def load_model(self, path='/home/ozlia/basicAE/model/'):
+    def load_model(self, model_dir='/model/'):
         """
         loads model
-        @param path: path in cluster of saved model
+        @param model_dir: path in cluster of saved model
         @return: nothing, saves the model in class
         """
+        path = self.dir + model_dir
         self.model = keras.models.load_model(path)

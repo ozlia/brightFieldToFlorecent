@@ -18,7 +18,7 @@ data_input, data_output = data_prepere.separate_data(data_prepere.load(org_type)
 # Free up RAM in case the model definition cells were run multiple times
 keras.backend.clear_session()
 print("init model")
-model = AutoEncoder(img_size)
+model = AutoEncoder(img_size, epochs=epochs)
 print("training model")
 train_x, test_x, y_train, y_test = train_test_split(data_input, data_output, test_size=0.25, random_state=3,
                                                     shuffle=True)

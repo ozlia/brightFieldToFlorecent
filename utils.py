@@ -4,28 +4,26 @@ from PIL import Image
 import os
 import getpass
 
-DIRECTORY = "prediction3D"
-USER = getpass.getuser()
+USER = getpass.getuser().split("@")[0]
+DIRECTORY = "/home/%s/prediction3D" % USER
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY
-    global USER
     for i in range(0, 27):
         Image.fromarray(np.squeeze(input_patches[i]) * 255).convert('L').save(
-            '/home/%s/%s/input_patch_%d.png' % (USER, DIRECTORY, i))
+            '%s/input_patch_%d.png' % (DIRECTORY, i))
         Image.fromarray(np.squeeze(output_patches[i]) * 255).convert('L').save(
-            '/home/%s/%s/output_patch_%d.png' % (USER, DIRECTORY, i))
+            '%s/output_patch_%d.png' % (DIRECTORY, i))
 
 
 def save_img(data_input, data_output, predictions):
     print("saving first image")
-    global USER
     global DIRECTORY
     if not os.path.exists(DIRECTORY):
         os.makedirs(DIRECTORY)
-    Image.fromarray(np.squeeze(data_input) * 255).convert('L').save('/home/%s/%s/input.png' % (USER, DIRECTORY))
-    Image.fromarray(np.squeeze(predictions) * 255).convert('L').save('/home/%s/%s/prediction.png' % (USER, DIRECTORY))
-    Image.fromarray(np.squeeze(data_output) * 255).convert('L').save('/home/%s/%s/original.png' % (USER, DIRECTORY))
+    Image.fromarray(np.squeeze(data_input) * 255).convert('L').save('%s/input.png' % DIRECTORY)
+    Image.fromarray(np.squeeze(predictions) * 255).convert('L').save('%s/prediction.png' % DIRECTORY)
+    Image.fromarray(np.squeeze(data_output) * 255).convert('L').save('%s/original.png' % DIRECTORY)
 
     # todo needs work on defining metrics
     def evaluate(test_data_input, test_data_output, metrics):
