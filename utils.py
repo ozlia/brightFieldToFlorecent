@@ -7,11 +7,12 @@ from patchify import patchify, unpatchify
 import cv2
 from aicsimageio import AICSImage
 
-
+pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
 DIRECTORY = "/home/%s/prediction3D" % USER
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
+
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY
@@ -45,8 +46,12 @@ def save_img(data_input, data_output, predictions):
         print("test loss, test acc:", results)
 
 
+def norm_img(img):
+    return img / pixel_limit
+
+
 def save_full_2d_pic(img, name):
-    Image.fromarray(np.squeeze(img) * 255).convert('L').save(DIRECTORY + '/' + name)
+    cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img) * pixel_limit).astype(np.uint16))
 
 
 def utils_patchify(img_lst, size, resize=False):
@@ -68,4 +73,3 @@ def resize_patch_list(patches):  # return shape of (28, 128,128,1)
         for j in i:
             patches_list4D.append(j[0, :, :, :])
     return patches_list4D
-
