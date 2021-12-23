@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 import utils
 from BasicAE.autoEncoder import AutoEncoder
 
+# interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
 # (x,y,z)
 img_size = (128, 128, 1)
 batch_size = 28
@@ -30,7 +31,7 @@ print("Generate predictions for n samples")
 # predictions = model.predict_patches(test_x)
 # print("shape predictions: " + str(predictions.shape))
 
-br = model.pre dict([data_input[0]])
+br = model.predict([data_input[0]])
 utils.save_full_2d_pic(br)
 
 # saves wanted patch
