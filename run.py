@@ -32,7 +32,9 @@ print("Generate predictions for n samples")
 # print("shape predictions: " + str(predictions.shape))
 
 br = model.predict([data_input[0]])
-utils.save_full_2d_pic(br)
+utils.save_full_2d_pic(br, 'predicted_output.png')
+utils.save_full_2d_pic(data_input[0], 'input.png')
+utils.save_full_2d_pic(data_output[0], 'output.png')
 
 # saves wanted patch
 # utils.save_img(data_input[0], data_output[0], predictions[0])

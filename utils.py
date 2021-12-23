@@ -45,8 +45,8 @@ def save_img(data_input, data_output, predictions):
         print("test loss, test acc:", results)
 
 
-def save_full_2d_pic(img):
-    Image.fromarray(np.squeeze(img) * 255).convert('L').save('%s/Full_output_2d_patches.png' % DIRECTORY)
+def save_full_2d_pic(img, name):
+    Image.fromarray(np.squeeze(img) * 255).convert('L').save(name % DIRECTORY)
 
 
 def utils_patchify(img_lst, size, resize=False):
