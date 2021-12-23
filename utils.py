@@ -46,7 +46,7 @@ def save_img(data_input, data_output, predictions):
 
 
 def save_full_2d_pic(img, name):
-    Image.fromarray(np.squeeze(img) * 255).convert('L').save(name % DIRECTORY)
+    Image.fromarray(np.squeeze(img) * 255).convert('L').save(DIRECTORY + '/' + name)
 
 
 def utils_patchify(img_lst, size, resize=False):

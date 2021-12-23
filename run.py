@@ -9,7 +9,7 @@ from BasicAE.autoEncoder import AutoEncoder
 img_size = (128, 128, 1)
 batch_size = 28
 epochs = 100
-limit = 150
+limit = 1
 org_type = "Mitochondria/"
 
 print("reading images")
@@ -23,8 +23,8 @@ model = AutoEncoder(img_size, epochs=epochs)
 print("training model")
 train_x, test_x, y_train, y_test = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
                                                     shuffle=True)
-model.train(train_x, y_train)
-# model.load_model(model_dir="/model2D/")
+# model.train(train_x, y_train)
+model.load_model(model_dir="/model2D_full/")
 
 print("Generate predictions for n samples")
 # print("shape text_x: " + str(test_x.shape))
@@ -34,7 +34,7 @@ print("Generate predictions for n samples")
 br = model.predict([data_input[0]])
 utils.save_full_2d_pic(br, 'predicted_output.png')
 utils.save_full_2d_pic(data_input[0], 'input.png')
-utils.save_full_2d_pic(data_output[0], 'output.png')
+utils.save_full_2d_pic(data_output[0], 'ground_truth.png')
 
 # saves wanted patch
 # utils.save_img(data_input[0], data_output[0], predictions[0])
