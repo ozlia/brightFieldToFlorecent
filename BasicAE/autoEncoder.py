@@ -1,9 +1,12 @@
 from tensorflow import keras
 from keras import layers
-
+from patchify import patchify, unpatchify
+import data_prepere
+import utils
 from ICNN import ICNN
 import getpass
 import os
+
 
 class AutoEncoder(ICNN):
 
@@ -41,7 +44,7 @@ class AutoEncoder(ICNN):
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
-    def train(self, train_x, train_label, valid_x=None, valid_label=None, model_dir="/model2D/"):
+    def train(self, train_x, train_label, valid_x=None, valid_label=None, model_dir="/model2D_full/"):
         model_dir = self.dir + model_dir
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
@@ -65,15 +68,20 @@ class AutoEncoder(ICNN):
         """
         return self.model.predict(test_data_input)
 
-    def predict(self, test_x):
+    def predict(self, img):
         """
         predicts list of full scaled bright_field images
-        @param test_x: list of full scaled predicted fluorescent images
+        @param path_to_tiff: list of full scaled predicted fluorescent images
         @return:
         """
-        for img in test_x:
-            q = 0
-        return 0
+        # bright_field = data_prepere.pack_unpack_data(path_to_tiff, self.input_dim)
+        bright_field = utils.utils_patchify(img, self.input_dim)
+        for row in bright_field:
+            for col in row:
+                pred_img = self.model.predict(col)
+                col[0] = pred_img[0]
+        size = (640, 1024, 1)
+        return unpatchify(bright_field, size)
 
     def load_model(self, model_dir='/model/'):
         """

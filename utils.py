@@ -3,9 +3,15 @@ import numpy as np
 from PIL import Image
 import os
 import getpass
+from patchify import patchify, unpatchify
+import cv2
+from aicsimageio import AICSImage
+
 
 USER = getpass.getuser().split("@")[0]
 DIRECTORY = "/home/%s/prediction3D" % USER
+if not os.path.exists(DIRECTORY):
+    os.makedirs(DIRECTORY)
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY
@@ -19,8 +25,7 @@ def save_entire_patch_series(input_patches, output_patches):
 def save_img(data_input, data_output, predictions):
     print("saving first image")
     global DIRECTORY
-    if not os.path.exists(DIRECTORY):
-        os.makedirs(DIRECTORY)
+
     Image.fromarray(np.squeeze(data_input) * 255).convert('L').save('%s/input.png' % DIRECTORY)
     Image.fromarray(np.squeeze(predictions) * 255).convert('L').save('%s/prediction.png' % DIRECTORY)
     Image.fromarray(np.squeeze(data_output) * 255).convert('L').save('%s/original.png' % DIRECTORY)
@@ -38,3 +43,29 @@ def save_img(data_input, data_output, predictions):
         print("Evaluate on test data")
         results = metrics.evaluate(test_data_input, test_data_output)
         print("test loss, test acc:", results)
+
+
+def save_full_2d_pic(img):
+    Image.fromarray(np.squeeze(img) * 255).convert('L').save('%s/Full_output_2d_patches.png' % DIRECTORY)
+
+
+def utils_patchify(img_lst, size, resize=False):
+    all_patches = []
+    for img in img_lst:
+        img_patches = patchify(img, size, step=size[0])  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
+        if resize:
+            all_patches.extend(resize_patch_list(img_patches))
+        else:
+            all_patches.append(img_patches)
+    all_patches = np.array(all_patches)
+    if resize: return all_patches
+    return all_patches[0]
+
+
+def resize_patch_list(patches):  # return shape of (28, 128,128,1)
+    patches_list4D = []
+    for i in patches:
+        for j in i:
+            patches_list4D.append(j[0, :, :, :])
+    return patches_list4D
+
