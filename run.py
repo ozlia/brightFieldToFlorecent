@@ -7,7 +7,7 @@ from BasicAE.autoEncoder import AutoEncoder
 # (x,y,z)
 img_size = (128, 128, 1)
 batch_size = 28
-epochs = 1000
+epochs = 100
 limit = 150
 org_type = "Mitochondria/"
 
@@ -30,7 +30,7 @@ print("Generate predictions for n samples")
 # predictions = model.predict_patches(test_x)
 # print("shape predictions: " + str(predictions.shape))
 
-br = model.predict([data_input[0]])
+br = model.pre dict([data_input[0]])
 utils.save_full_2d_pic(br)
 
 # saves wanted patch

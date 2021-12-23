@@ -10,7 +10,7 @@ import os
 
 class AutoEncoder(ICNN):
 
-    def __init__(self, input_dim=(128, 128, 1), batch_size=16, epochs=1000):
+    def __init__(self, input_dim=(128, 128, 1), batch_size=32, epochs=1000):
         inputs = keras.Input(shape=input_dim)
 
         # [First half of the network: downSampling inputs]
