@@ -6,7 +6,7 @@ from BasicAE.autoEncoder import AutoEncoder
 
 # interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
 # (x,y,z)
-img_size = (128, 128, 1)
+img_size = (6, 128, 128)
 batch_size = 28
 epochs = 100
 limit = 1
@@ -23,8 +23,8 @@ model = AutoEncoder(img_size, epochs=epochs)
 print("training model")
 train_x, test_x, y_train, y_test = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
                                                     shuffle=True)
-# model.train(train_x, y_train)
-model.load_model(model_dir="/model2D_full/")
+model.train(train_x, y_train)
+# model.load_model(model_dir="/model2D_full/")
 
 print("Generate predictions for n samples")
 # print("shape text_x: " + str(test_x.shape))

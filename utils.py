@@ -55,9 +55,10 @@ def save_full_2d_pic(img, name):
 
 
 def utils_patchify(img_lst, size, resize=False):
+    z, y, x = size
     all_patches = []
     for img in img_lst:
-        img_patches = patchify(img, size, step=size[0])  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
+        img_patches = patchify(img, size, step=x)  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
         if resize:
             all_patches.extend(resize_patch_list(img_patches))
         else:
@@ -69,7 +70,7 @@ def utils_patchify(img_lst, size, resize=False):
 
 def resize_patch_list(patches):  # return shape of (28, 128,128,1)
     patches_list4D = []
-    for i in patches:
+    for i in np.squeeze(patches):
         for j in i:
-            patches_list4D.append(j[0, :, :, :])
+            patches_list4D.append(j)
     return patches_list4D
