@@ -10,7 +10,7 @@ import os
 
 class AutoEncoder(ICNN):
 
-    def __init__(self, input_dim=(128, 128, 1), batch_size=32, epochs=1000):
+    def __init__(self, input_dim=(1, 128, 128), batch_size=32, epochs=1000):
         inputs = keras.Input(shape=input_dim)
 
         # [First half of the network: downSampling inputs]
@@ -28,7 +28,7 @@ class AutoEncoder(ICNN):
         x = layers.UpSampling2D((2, 2))(x)
         x = layers.Conv2DTranspose(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
         x = layers.UpSampling2D((2, 2))(x)
-        outputs = layers.Conv2D(input_dim[2], 3, activation="sigmoid", padding="same")(x)
+        outputs = layers.Conv2D(input_dim[0], 3, activation="sigmoid", padding="same")(x)
 
         model = keras.Model(inputs, outputs)
         model.compile(optimizer="adam", loss="binary_crossentropy")
