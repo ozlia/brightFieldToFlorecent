@@ -1,4 +1,5 @@
 import PIL
+import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import os
@@ -51,8 +52,8 @@ def norm_img(img):
 
 
 def save_full_2d_pic(img, name):
-    cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img) * pixel_limit).astype(np.uint16))
-
+    # cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img)).astype(np.uint16))
+    plt.imsave(DIRECTORY + '/' + name, img * pixel_limit, cmap=plt.cm.gray)
 
 def utils_patchify(img_lst, size, resize=False):
     all_patches = []
