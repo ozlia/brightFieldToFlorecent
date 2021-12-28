@@ -80,7 +80,7 @@ class AutoEncoder(ICNN):
             for col in row:
                 pred_img = self.model.predict(col)
                 col[0] = pred_img[0]
-        size = (640, 1024, 1)
+        size = (640, 896, 1)
         return unpatchify(bright_field, size)
 
     def load_model(self, model_dir='/model/'):

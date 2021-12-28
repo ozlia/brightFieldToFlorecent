@@ -13,8 +13,7 @@ def load(org_type, limit=1):
     for t in folder:
         if ".tiff" in t:
             fovs.append("/storage/users/assafzar/fovs/" + org_type + t)
-
-    return fovs[:min(limit, len(fovs) - 1)]
+    return fovs[:min(limit, len(fovs))]
 
     # files, x_pixels, y_pixels, color
 
@@ -44,7 +43,8 @@ def separate_data(fovs, img_size):
 
 
 def image2d_prep(img_2D, x, y, z=1):
-    pad_image = cv2.copyMakeBorder(img_2D, 0, 16, 0, 100, cv2.BORDER_REPLICATE)
+    pad_image = cv2.resize(img_2D, (896, 640), interpolation=cv2.INTER_AREA)
+    # pad_image = cv2.copyMakeBorder(img_2D, 0, 16, 0, 100, cv2.BORDER_REPLICATE)
     img_2d_norm = utils.norm_img(pad_image)
     img_2d_color = np.expand_dims(img_2d_norm, axis=-1)  # (624, 928) -> ((624, 928, 1))
     return img_2d_color

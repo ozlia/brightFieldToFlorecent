@@ -53,12 +53,15 @@ def norm_img(img):
 
 def save_full_2d_pic(img, name):
     # cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img)).astype(np.uint16))
-    plt.imsave(DIRECTORY + '/' + name, img * pixel_limit, cmap=plt.cm.gray)
+    plt.imsave(DIRECTORY + '/' + name, np.squeeze(img) * pixel_limit, cmap=plt.cm.gray)
 
-def utils_patchify(img_lst, size, resize=False):
+def utils_patchify(img_lst, size, resize=False, over_lap_steps=1):
+    step = size[0]
+    if resize:
+        step = int(step/over_lap_steps)
     all_patches = []
     for img in img_lst:
-        img_patches = patchify(img, size, step=size[0])  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
+        img_patches = patchify(img, size, step=step)  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
         if resize:
             all_patches.extend(resize_patch_list(img_patches))
         else:
