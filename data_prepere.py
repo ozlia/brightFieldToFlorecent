@@ -49,10 +49,10 @@ def separate_data(fovs, img_size):
     return bright_field_array, fluorescent_array
 
 
-def image3d_prep(img_3d: np.ndarra, type):
+def image3d_prep(img_3d, type):
     z, y, x = img_3d.shape
-    img_3d_padded = np.zeros((3, 640, 896))
+    img_3d_padded = np.zeros((6, 640, 896))
     for i in range(z):
-        img_3d_padded[i] = cv2.resize(img_3d, (896, 640), interpolation=cv2.INTER_AREA)
+        img_3d_padded[i] = cv2.resize(img_3d[i], (896, 640), interpolation=cv2.INTER_AREA)
     img_3d_norm = utils.norm_img(img_3d_padded)
     return img_3d_norm

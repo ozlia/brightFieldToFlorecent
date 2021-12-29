@@ -58,7 +58,7 @@ def save_full_2d_pic(img, name):
 
 def utils_patchify(img_lst, size, resize=False, over_lap_steps=1):
     z, y, x = size
-    step = size[0]
+    step = x
     if resize:
         step = int(step / over_lap_steps)
     all_patches = []
