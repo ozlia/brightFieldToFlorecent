@@ -54,7 +54,7 @@ class AutoEncoder(ICNN):
         callbacks = [
             keras.callbacks.ModelCheckpoint("%s/BasicAEModel2D.h5" % self.dir, save_best_only=True)
         ]
-        validation = (valid_x, valid_label) if valid_x and valid_label else None
+        validation = (valid_x, valid_label) if valid_x is not None and valid_label is not None else None
         model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
                   validation_data=validation,
                   callbacks=callbacks)
@@ -80,7 +80,7 @@ class AutoEncoder(ICNN):
             for col in row:
                 pred_img = self.model.predict(col)
                 col[0] = pred_img[0]
-        size = (640, 1024, 1)
+        size = (640, 896, 1)
         return unpatchify(bright_field, size)
 
     def load_model(self, model_dir='/model/'):

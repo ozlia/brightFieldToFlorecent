@@ -1,4 +1,5 @@
 import PIL
+import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import os
@@ -47,18 +48,22 @@ def save_img(data_input, data_output, predictions):
 
 
 def norm_img(img):
-    return img / pixel_limit
+    return img / img.max()
 
 
 def save_full_2d_pic(img, name):
-    cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img) * pixel_limit).astype(np.uint16))
+    # cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img)).astype(np.uint16))
+    plt.imsave(DIRECTORY + '/' + name, np.squeeze(img), cmap=plt.cm.gray)
 
 
-def utils_patchify(img_lst, size, resize=False):
+def utils_patchify(img_lst, size, resize=False, over_lap_steps=1):
     z, y, x = size
+    step = size[0]
+    if resize:
+        step = int(step / over_lap_steps)
     all_patches = []
     for img in img_lst:
-        img_patches = patchify(img, size, step=x)  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
+        img_patches = patchify(img, size, step=step)  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
         if resize:
             all_patches.extend(resize_patch_list(img_patches))
         else:
@@ -74,3 +79,12 @@ def resize_patch_list(patches):  # return shape of (28, 128,128,1)
         for j in i:
             patches_list4D.append(j)
     return patches_list4D
+
+
+def load_numpy_array(path):
+    p = np.load(DIRECTORY + '/' + path)
+    return p
+
+
+def save_numpy_array(array, path):
+    np.save(DIRECTORY + '/' + path, array)
