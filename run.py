@@ -15,7 +15,11 @@ org_type = "Mitochondria/"
 
 start = datetime.now()
 print("reading images")
-data_input, data_output = data_prepere.separate_data(data_prepere.load(org_type, limit=limit), img_size)
+data_input, data_output = data_prepere.separate_data(data_prepere.load_paths(org_type, limit=limit), img_size)
+utils.save_numpy_array(data_input, "input_images_after_data_prepare")
+utils.save_numpy_array(data_output, "output_images_after_data_prepare")
+# data_input = utils.load_numpy_array("input__after_data_prepare.npy")
+# data_output = utils.load_numpy_array("output_after_data_prepare.npy")
 patches_input = utils.utils_patchify(data_input, img_size, resize=True, over_lap_steps=3)
 patches_output = utils.utils_patchify(data_output, img_size, resize=True, over_lap_steps=3)
 

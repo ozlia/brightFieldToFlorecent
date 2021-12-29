@@ -13,7 +13,7 @@ class ImgType(Enum):
     FLUORESCENT = 1
 
 
-def load(org_type, limit=1):
+def load_paths(org_type, limit=1):
     fovs = []
     folder = os.listdir("/storage/users/assafzar/fovs/" + org_type)
     for t in folder:

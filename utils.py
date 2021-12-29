@@ -78,3 +78,12 @@ def resize_patch_list(patches):  # return shape of (28, 128,128,1)
         for j in i:
             patches_list4D.append(j[0, :, :, :])
     return patches_list4D
+
+
+def load_numpy_array(path):
+    p = np.load(DIRECTORY + '/' + path)
+    return p
+
+
+def save_numpy_array(array, path):
+    np.save(DIRECTORY + '/' + path, array)
