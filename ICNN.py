@@ -8,7 +8,7 @@ class ICNN(ABC):
         pass
 
     @abstractmethod
-    def train(self, train_x, train_label, valid_x=None, valid_label=None, model_dir="/home/ozlia/basicAE/model2D/"):
+    def train(self, train_x, train_label, val_set=0.0, model_dir="/home/ozlia/basicAE/model2D/"):
         pass
 
     @abstractmethod

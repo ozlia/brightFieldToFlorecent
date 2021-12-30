@@ -1,7 +1,6 @@
 from tensorflow import keras
 from keras import layers
 from patchify import patchify, unpatchify
-import data_prepere
 import utils
 from ICNN import ICNN
 import getpass
@@ -44,7 +43,9 @@ class AutoEncoder(ICNN):
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
-    def train(self, train_x, train_label, valid_x=None, valid_label=None, model_dir="/model2D_full/"):
+    def train(self, train_x, train_label, val_set=0.0, model_dir="/model2D_full/"):
+        # train_x = utils.transform_dimensions(train_x, [0, 2, 3, 1])
+        # train_label = utils.transform_dimensions(train_label, [0, 2, 3, 1])
         model_dir = self.dir + model_dir
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
@@ -54,9 +55,8 @@ class AutoEncoder(ICNN):
         callbacks = [
             keras.callbacks.ModelCheckpoint("%s/BasicAEModel2D.h5" % self.dir, save_best_only=True)
         ]
-        validation = (valid_x, valid_label) if valid_x is not None and valid_label is not None else None
         model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
-                  validation_data=validation,
+                  validation_split=val_set,
                   callbacks=callbacks)
         model.save(model_dir)
 
@@ -74,13 +74,12 @@ class AutoEncoder(ICNN):
         @param path_to_tiff: list of full scaled predicted fluorescent images
         @return:
         """
-        # bright_field = data_prepere.pack_unpack_data(path_to_tiff, self.input_dim)
         bright_field = utils.utils_patchify(img, self.input_dim)
         for row in bright_field:
             for col in row:
                 pred_img = self.model.predict(col)
                 col[0] = pred_img[0]
-        size = (640, 896, 1)
+        size = img[0].shape
         return unpatchify(bright_field, size)
 
     def load_model(self, model_dir='/model/'):

@@ -1,12 +1,10 @@
-import PIL
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import os
 import getpass
 from patchify import patchify, unpatchify
-import cv2
-from aicsimageio import AICSImage
+from tensorflow import transpose
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
@@ -57,13 +55,13 @@ def save_full_2d_pic(img, name):
 
 
 def utils_patchify(img_lst, size, resize=False, over_lap_steps=1):
-    z, y, x = size
+    x, y, z = size
     step = x
     if resize:
         step = int(step / over_lap_steps)
     all_patches = []
     for img in img_lst:
-        img_patches = patchify(img, size, step=step)  # split image into 35  128*128 patches. (4, 7, 1, 128, 128, 1)
+        img_patches = patchify(img, size, step=step)  # split image into 35  128*128 patches. (4, 7, 6, 128, 128, 1)
         if resize:
             all_patches.extend(resize_patch_list(img_patches))
         else:
@@ -88,3 +86,7 @@ def load_numpy_array(path):
 
 def save_numpy_array(array, path):
     np.save(DIRECTORY + '/' + path, array)
+
+
+def transform_dimensions(array, new_shape_indexes):
+    return np.array(transpose(array, new_shape_indexes))
