@@ -4,6 +4,7 @@ from PIL import Image
 import os
 import getpass
 from patchify import patchify, unpatchify
+from sklearn.preprocessing import normalize
 from tensorflow import transpose
 
 pixel_limit = 65535
@@ -46,8 +47,10 @@ def save_img(data_input, data_output, predictions):
 
 
 def norm_img(img):
-    return img / img.max()
-
+    # return img / img.max()
+    for i in range(img.shape[0]):
+        img[i] = normalize(img[i])
+    return img
 
 def save_full_2d_pic(img, name):
     # cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img)).astype(np.uint16))

@@ -1,28 +1,31 @@
 import data_prepere
-import keras
 from sklearn.model_selection import train_test_split
 import utils
 from BasicAE.autoEncoder import AutoEncoder
 from datetime import datetime
-
+import tensorflow as tf
+from tensorflow.keras import backend as KB
 # interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
-# (x,y,z)
-img_size = (6, 128, 128)
+
+
+img_size = (6, 128, 128)    # (x,y,z)
 img_size_rev = (img_size[1], img_size[2], img_size[0])
-batch_size = 128
-epochs = 100
+batch_size = 32
+epochs = 5000
 limit = 150
 org_type = "Mitochondria/"
 
+
 start = datetime.now()
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 print("reading images")
-data_input, data_output = data_prepere.separate_data(data_prepere.load_paths(org_type, limit=limit), img_size)
+# data_input, data_output = data_prepere.separate_data(data_prepere.load_paths(org_type, limit=limit), img_size)
+# utils.save_numpy_array(data_input, "input_images_after_data_prepare")
+# utils.save_numpy_array(data_output, "output_images_after_data_prepare")
+data_input = utils.load_numpy_array("input_images_after_data_prepare.npy")
+data_output = utils.load_numpy_array("output_images_after_data_prepare.npy")
 data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
 data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
-utils.save_numpy_array(data_input, "input_images_after_data_prepare")
-utils.save_numpy_array(data_output, "output_images_after_data_prepare.npy")
-# data_input = utils.load_numpy_array("input_images_after_data_prepare.npy")
-# data_output = utils.load_numpy_array("outpt_images_after_data_prepare.npy")
 patches_input = utils.utils_patchify(data_input, img_size_rev, resize=True, over_lap_steps=1)
 patches_output = utils.utils_patchify(data_output, img_size_rev, resize=True, over_lap_steps=1)
 
@@ -30,7 +33,7 @@ stop = datetime.now()
 print('Done Reading and Patching, Time: ', stop - start)
 
 # Free up RAM in case the model definition cells were run multiple times
-keras.backend.clear_session()
+KB.clear_session()
 print("init model")
 model = AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size)
 print("training model")
@@ -45,9 +48,9 @@ print('Done Train, Time: ', stop - start)
 
 print("Generate new pic")
 br = model.predict([data_input[0]])
-utils.save_full_2d_pic(br[:, :, 3], 'predicted_output.png')
-utils.save_full_2d_pic(data_input[0][:, :, 3], 'input.png')
-utils.save_full_2d_pic(data_output[0][:, :, 3], 'ground_truth.png')
+utils.save_full_2d_pic(br[:, :, 2], 'predicted_output.png')
+utils.save_full_2d_pic(data_input[0][:, :, 2], 'input.png')
+utils.save_full_2d_pic(data_output[0][:, :, 2], 'ground_truth.png')
 print("All pics saved")
 stop = datetime.now()
 print('Done All, Time: ', stop - start)

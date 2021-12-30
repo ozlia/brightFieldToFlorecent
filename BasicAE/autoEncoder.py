@@ -1,5 +1,5 @@
 from tensorflow import keras
-from keras import layers
+from tensorflow.keras import layers
 from patchify import patchify, unpatchify
 import utils
 from ICNN import ICNN
@@ -30,7 +30,7 @@ class AutoEncoder(ICNN):
         outputs = layers.Conv2D(input_dim[2], 3, activation="sigmoid", padding="same")(x)
 
         model = keras.Model(inputs, outputs)
-        model.compile(optimizer="adam", loss="binary_crossentropy")
+        model.compile(optimizer="adam", loss="mean_squared_error")
         self.model = model
         self.input_dim = input_dim
         self.batch_size = batch_size
