@@ -6,10 +6,13 @@ import getpass
 from patchify import patchify, unpatchify
 from sklearn.preprocessing import normalize
 from tensorflow import transpose
+import imageio
+from datetime import datetime
+
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
-DIRECTORY = "/home/%s/prediction3D" % USER
+DIRECTORY = "/home/%s/prediction3D_64px" % USER
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
 
@@ -52,9 +55,17 @@ def norm_img(img):
         img[i] = normalize(img[i])
     return img
 
+
 def save_full_2d_pic(img, name):
     # cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img)).astype(np.uint16))
     plt.imsave(DIRECTORY + '/' + name, np.squeeze(img), cmap=plt.cm.gray)
+
+
+def save_np_as_tiff(img):
+    now = datetime.now()
+    for i in range(img.shape[2]):
+        img_slice = img[:, :, i]
+        imageio.imwrite("%s/predict_slice-%d_%s.tiff" % (DIRECTORY, i, now.strftime("%H-%M_%d-%m-%Y")), img_slice)
 
 
 def utils_patchify(img_lst, size, resize=False, over_lap_steps=1):

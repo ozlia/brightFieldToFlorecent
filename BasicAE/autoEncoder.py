@@ -53,7 +53,7 @@ class AutoEncoder(ICNN):
         model = self.model
         model.summary()
         callbacks = [
-            keras.callbacks.ModelCheckpoint("%s/BasicAEModel2D.h5" % self.dir, save_best_only=True)
+            keras.callbacks.ModelCheckpoint("%s/BasicAEModel3D.h5" % self.dir, save_best_only=True)
         ]
         model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
                   validation_split=val_set,
