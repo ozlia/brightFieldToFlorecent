@@ -27,10 +27,44 @@ class AutoEncoder(ICNN):
         x = layers.UpSampling2D((2, 2))(x)
         x = layers.Conv2DTranspose(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
         x = layers.UpSampling2D((2, 2))(x)
-        outputs = layers.Conv2D(input_dim[2], 3, activation="sigmoid", padding="same")(x)
+        outputs = layers.Conv2D(input_dim[2], (1, 1), activation="sigmoid", padding="same")(x)
+
+        # [First half of the network: downSampling inputs]
+        # x = layers.Conv2D(16, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(inputs)
+        # # x = layers.Dropout(0.1)(x)
+        # x = layers.Conv2D(16, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.MaxPooling2D((2, 2), padding="same")(x)
+        # x = layers.Conv2D(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # # x = layers.Dropout(0.1)(x)
+        # x = layers.Conv2D(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.MaxPooling2D((2, 2), padding="same")(x)
+        # x = layers.Conv2D(64, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # # x = layers.Dropout(0.1)(x)
+        # x = layers.Conv2D(64, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.MaxPooling2D((2, 2), padding="same")(x)
+        # x = layers.Conv2D(128, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # # x = layers.Dropout(0.1)(x)
+        # x = layers.Conv2D(128, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        #
+        # # [second half of the net work upSampling]
+        # x = layers.Conv2DTranspose(128, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.Conv2DTranspose(128, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.UpSampling2D(2)(x)
+        # x = layers.Conv2DTranspose(64, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.Conv2DTranspose(64, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.UpSampling2D(2)(x)
+        # x = layers.Conv2DTranspose(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.Conv2DTranspose(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.UpSampling2D(2)(x)
+        # x = layers.Conv2DTranspose(16, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        # x = layers.Conv2DTranspose(16, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
+        #
+        # outputs = layers.Conv2D(input_dim[2], (1, 1), activation="sigmoid", padding="same")(x)
+
+
 
         model = keras.Model(inputs, outputs)
-        model.compile(optimizer="adam", loss="mean_squared_error")
+        model.compile(optimizer="adam", loss=AutoEncoder.weighted_mse)
         self.model = model
         self.input_dim = input_dim
         self.batch_size = batch_size
@@ -90,3 +124,12 @@ class AutoEncoder(ICNN):
         """
         path = self.dir + model_dir
         self.model = keras.models.load_model(path)
+
+    @staticmethod
+    def weighted_mse(yTrue, yPred):
+
+        ones = keras.backend.ones_like(yTrue[0, :])
+        idx = keras.backend.cumsum(ones)
+
+        return keras.backend.mean((1 / idx) * keras.backend.square(yTrue - yPred))
+

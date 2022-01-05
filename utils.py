@@ -7,7 +7,6 @@ from patchify import patchify, unpatchify
 from sklearn.preprocessing import normalize
 from tensorflow import transpose
 import imageio
-from datetime import datetime
 
 
 pixel_limit = 65535
@@ -61,11 +60,14 @@ def save_full_2d_pic(img, name):
     plt.imsave(DIRECTORY + '/' + name, np.squeeze(img), cmap=plt.cm.gray)
 
 
-def save_np_as_tiff(img):
-    now = datetime.now()
+def save_np_as_tiff(img, time, name):
+    date_dir = DIRECTORY + '/' + time
+    if not os.path.exists(date_dir):
+        os.makedirs(date_dir)
     for i in range(img.shape[2]):
         img_slice = img[:, :, i]
-        imageio.imwrite("%s/predict_slice-%d_%s.tiff" % (DIRECTORY, i, now.strftime("%H-%M_%d-%m-%Y")), img_slice)
+        imageio.imwrite("%s/%s_slice-%d_%s.tiff" % (date_dir, name, i, time), img_slice)
+        print('.')
 
 
 def utils_patchify(img_lst, size, resize=False, over_lap_steps=1):

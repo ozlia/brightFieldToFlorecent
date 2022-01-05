@@ -1,0 +1,10 @@
+conda create -n my_env python=3.7
+conda activate my_env 
+conda install -c anaconda tensorflow-gpu
+pip install opencv-python
+pip install aicsimageio
+pip install matplotlib
+pip install patchify
+pip install -U scikit-learn
+pip install imageio
+conda deactivate
