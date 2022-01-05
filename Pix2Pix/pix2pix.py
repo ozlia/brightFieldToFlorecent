@@ -22,9 +22,8 @@ from Pix2Pix.pix_data_prepere import pix2pix_data_prepare
 
 
 class Pix2Pix:
-    def __init__(self):
+    def __init__(self,batch_size=-1):
         self.root_dir = '/home/tomrob/pix2pix'
-        # self.progress_report : pd.DataFrame = pd.DataFrame(columns=['Epoch', 'Batch', 'G Loss', 'D Loss', 'D Acc'])
         self.progress_report = {k: [] for k in ['Epoch', 'Batch', 'G Loss', 'D Loss']}
         # os.mkdir(self.root_dir)
 
@@ -59,6 +58,8 @@ class Pix2Pix:
         # Build the generator
         self.generator = self.build_generator()
 
+        self.generator.summary()
+
         # Input images and their conditioning images
         real_fluorescent = Input(shape=self.img_shape)
         real_brightfield = Input(shape=self.img_shape)
@@ -76,6 +77,10 @@ class Pix2Pix:
         self.combined.compile(loss=['mse', 'mae'],
                               loss_weights=[1, 100],
                               optimizer=self.optimizer)
+
+        self.combined.summary()
+
+
 
     def build_generator(self):
         """U-Net Generator"""
@@ -155,16 +160,15 @@ class Pix2Pix:
         valid = np.ones((batch_size_in_patches,) + self.disc_patch)
         fake = np.zeros((batch_size_in_patches,) + self.disc_patch)
 
-        for epoch in range(epochs):  # TODO read once and save instead of reading every epoch
+        for epoch in range(epochs):
             for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
                     self.data_preper.load_images_as_batches(batch_size=batch_size_in_patches)):
-
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
 
                 # Condition on B and generate a translated version
-                fake_fluorescent_batch = self.generator.predict(real_brightfield_batch)  # TODO predict>?
+                fake_fluorescent_batch = self.generator.predict(real_brightfield_batch)
 
                 # Train the discriminators (original images = real / generated = Fake)
                 d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch], valid)
@@ -229,7 +233,7 @@ class Pix2Pix:
         fname = f"{datetime.datetime.now().strftime('%d-%m-%Y, %H:%M:%S')}.csv"
 
         progress_report: pd.DataFrame = pd.DataFrame.from_dict(data=self.progress_report)
-        progress_report.to_csv(os.path.join(progress_root_dir, fname),index=False)
+        progress_report.to_csv(os.path.join(progress_root_dir, fname), index=False)
 
     def load_model(self, target_path=None):
         if not target_path:
@@ -275,13 +279,13 @@ class Pix2Pix:
 
 
 if __name__ == '__main__':
-
     # addition to running offline?
     # os.system("nohup bash -c '" +
-    #           sys.executable + " train.py --size 192 >result.txt" +
+    #           sys.executable + " pix2pix.py --size 192 >result.txt" +
     #           "' &")
 
+    # batch_size = 50  # in patches
     gan = Pix2Pix()
-    gan.train(epochs=1, batch_size_in_patches=32, sample_interval_in_batches=-1)
-    gan.save_model_and_progress_report()
+    # gan.train(epochs=1, batch_size_in_patches=75, sample_interval_in_batches=-1)
+    # gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()

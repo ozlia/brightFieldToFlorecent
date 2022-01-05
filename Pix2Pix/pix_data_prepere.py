@@ -26,11 +26,14 @@ class pix2pix_data_prepare():
         self.saved_input_imgs_fname = 'input_images_after_data_prepare.npy'
         self.saved_output_imgs_fname = 'output_images_after_data_prepare.npy'
 
-        self.limit = 100
+        self.limit = 150
         self.org_type = "Mitochondria/"
+        self.images_paths = data_prepere.load_paths(self.org_type, limit=self.limit)
 
         # self.sample_range = np.arange(len(self.train_x))
-        self.load_images()
+
+        # self.load_images()
+
 
     def load_all_images_of_specific_organelle(self, data_input=None, data_output=None):
         if data_input is None or data_output is None:
@@ -67,9 +70,13 @@ class pix2pix_data_prepare():
                                                                                 test_size=0.3,
                                                                                 random_state=3,
                                                                                 shuffle=True)
+        self.patches_input = None
+        self.patches_output = None
+        self.test_x = None
+        self.test_y = None
 
     def save_images_of_specific_organelle(self):
-        data_input, data_output = data_prepere.separate_data(data_prepere.load_paths(self.org_type, limit=self.limit),
+        data_input, data_output = data_prepere.separate_data(self.images_paths,
                                                              self.img_size)
         utils.save_numpy_array(data_input, "input_images_after_data_prepare")
         utils.save_numpy_array(data_output, "output_images_after_data_prepare")
