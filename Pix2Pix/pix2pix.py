@@ -2,7 +2,7 @@ from __future__ import print_function, division
 
 import sys
 
-from keras.utils import plot_model
+from tensorflow.keras.utils import plot_model
 from patchify import unpatchify
 
 import utils
@@ -48,7 +48,7 @@ class Pix2Pix:
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
-        self.discriminator.compile(loss='mse',
+        self.discriminator.compile(loss='binary_crossentropy',
                                    optimizer=self.optimizer,
                                    metrics=['accuracy'])
 
@@ -74,8 +74,8 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=['mse', 'mae'],
-                              loss_weights=[1, 100], #1,1
+        self.combined.compile(loss=['binary_crossentropy', 'mae'],
+                              loss_weights=[1, 1],
                               optimizer=self.optimizer)
         if print_summary:
             self.print_summary()
@@ -295,6 +295,6 @@ if __name__ == '__main__':
 
     batch_size = 75  # in patches
     gan = Pix2Pix()
-    gan.train(epochs=1, batch_size_in_patches=batch_size, sample_interval_in_batches=-1)
+    gan.train(epochs=10, batch_size_in_patches=batch_size, sample_interval_in_batches=-1)
     gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()
