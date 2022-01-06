@@ -5,15 +5,15 @@ from BasicAE.autoEncoder import AutoEncoder
 from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import backend as KB
-# interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
+# interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
 
 
 img_size = (6, 64, 64)    # (x,y,z)
 img_size_rev = (img_size[1], img_size[2], img_size[0])
-batch_size = 64
-epochs = 50
+batch_size = 32
+epochs = 5000
 limit = 150
-org_type = "Mitochondria/"
+org_type = "Nuclear-envelope/" # change the organelle name
 
 
 start = datetime.now()

@@ -33,7 +33,8 @@ def separate_data(fovs, img_size):
 
         img = np.squeeze(img, axis=0)
         n_channels = img.shape[0]
-
+        if n_channels <= 6:
+            continue
         mid_slice = np.int(0.5 * img.shape[1])
         upper_slice = int(mid_slice + z / 2)
         under_slice = int(mid_slice - z / 2)
