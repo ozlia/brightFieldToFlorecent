@@ -51,7 +51,7 @@ def save_img(data_input, data_output, predictions):
 def norm_img(img):
     # return img / img.max()
     for i in range(img.shape[0]):
-        img[i] = normalize(img[i])
+        img[i] = (img[i] - np.min(img[i])) / (np.max(img[i]) - np.min(img[i]))
     return img
 
 
