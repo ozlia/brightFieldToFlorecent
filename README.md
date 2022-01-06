@@ -48,6 +48,26 @@ Scope:
 </p>
 
 ### Pix2Pix
+```bash
+cd Pix2Pix
+```
+Open pix2pix.py
+<br>
+- Train the model: 
+    ```python
+    gan = Pix2Pix()
+    gan.train(epochs=1, batch_size_in_patches=batch_size, sample_interval_in_batches=-1)
+    ```
+- Save the trained model: 
+    ```python
+    gan.save_model_and_progress_report()
+    ```
+- Load the trained model and produce an image: 
+    ```python
+    gan.load_model_predict_and_save()
+    ```
+
+
 <p align="center">
 <img src="https://user-images.githubusercontent.com/73793617/148371135-19e45ac0-8e20-4bd3-b061-dfe3dff77120.png" width="50%">
 </br>
