@@ -43,11 +43,17 @@ Scope:
 
 
 ### Autoencoder
+<p align="center">
+<img src="https://user-images.githubusercontent.com/73793617/148368548-c36e74ad-4982-4fbf-92c5-f26161e92b46.png" width="50%">
+</p>
 
-.
 ### Pix2Pix
+<p align="center">
+<img src="https://user-images.githubusercontent.com/73793617/148371135-19e45ac0-8e20-4bd3-b061-dfe3dff77120.png" width="50%">
+</br>
+Zhuge et al. (2021)
+</p>
 
-.
 ### Installation Requirements
 </br>
 
