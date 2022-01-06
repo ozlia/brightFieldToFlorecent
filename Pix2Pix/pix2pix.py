@@ -2,14 +2,14 @@ from __future__ import print_function, division
 
 import sys
 
+from keras.utils import plot_model
 from patchify import unpatchify
 
 import utils
-from Pix2Pix import pix_data_prepere
 
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model, load_model, save_model
-from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D
+from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D,Activation
 from tensorflow.keras.optimizers import Adam
 
 import datetime
@@ -18,7 +18,7 @@ import numpy as np
 import os
 import pandas as pd
 
-from Pix2Pix.pix2pix_data_prepare_batches import pix2pix_data_prepare
+from Pix2Pix.pix_data_prepere import pix2pix_data_prepare
 
 
 class Pix2Pix:
@@ -35,8 +35,8 @@ class Pix2Pix:
         self.channels = self.img_shape[2]
 
         # Calculate patch size of D (PatchGAN)
-        # patchGAN_patch_size = 2 ** 4
-        patchGAN_patch_size = 2 ** 5
+        patchGAN_patch_size = 2 ** 4
+        # patchGAN_patch_size = 2 ** 5 #TODO needs fixing for arc
         patch = int(self.img_shape[1] / patchGAN_patch_size)
         self.disc_patch = (patch, patch, self.img_shape[0])
 
@@ -74,12 +74,11 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=['binary_crossentropy', 'mae'],
-                              loss_weights=[1, 100],
+        self.combined.compile(loss=['mse', 'mae'],
+                              loss_weights=[1, 100], #1,1
                               optimizer=self.optimizer)
         if print_summary:
-            self.generator.summary()
-            self.combined.summary()
+            self.print_summary()
 
     def build_generator(self):
         """U-Net Generator"""
@@ -149,6 +148,7 @@ class Pix2Pix:
         d4 = d_layer(d3, self.df * 8)
 
         validity = Conv2D(1, kernel_size=4, strides=1, padding='same')(d4)
+        # validity = Activation('sigmoid')(validity)
 
         return Model([img_A, img_B], validity)
 
@@ -225,9 +225,9 @@ class Pix2Pix:
         os.makedirs(progress_root_dir, exist_ok=True)
         os.makedirs(models_root_dir, exist_ok=True)
 
-        save_model(model=self.combined, filepath=os.path.join(models_root_dir, 'combined_component'))
+        # save_model(model=self.combined, filepath=os.path.join(models_root_dir, 'combined_component'))
         save_model(model=self.generator, filepath=os.path.join(models_root_dir, 'generator_model'))
-        save_model(model=self.discriminator, filepath=os.path.join(models_root_dir, 'discriminator_model'))
+        # save_model(model=self.discriminator, filepath=os.path.join(models_root_dir, 'discriminator_model'))
 
         fname = f"{datetime.datetime.now().strftime('%d-%m-%Y, %H:%M:%S')}.csv"
 
@@ -238,24 +238,24 @@ class Pix2Pix:
         if not target_path:
             target_path = os.path.join(self.root_dir, 'models')
         # try:
-        self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'))
+        # self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'))
         self.generator = load_model(filepath=os.path.join(target_path, 'generator_model'))
-        self.discriminator = load_model(filepath=os.path.join(target_path, 'discriminator_model'))
+        # self.discriminator = load_model(filepath=os.path.join(target_path, 'discriminator_model'))
         # except:
         # raise FileNotFoundError(f'Could not load models from path: {target_path}')
 
     def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time):
-        # elapsed_time = datetime.datetime.now() - start_time
+        elapsed_time = datetime.datetime.now() - start_time
 
         for k, v in zip(self.progress_report.keys(), [curr_epoch, curr_batch, g_loss[0], d_loss[0]]):
             self.progress_report[k].append(v)
 
-        # print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
-        #                                                                                    curr_batch,
-        #                                                                                    d_loss[0],
-        #                                                                                    100 * d_loss[1],
-        #                                                                                    g_loss[0],
-        #                                                                                    elapsed_time))
+        print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
+                                                                                           curr_batch,
+                                                                                           d_loss[0],
+                                                                                           100 * d_loss[1],
+                                                                                           g_loss[0],
+                                                                                           elapsed_time))
 
     def load_model_predict_and_save(self):  # first image only
         self.load_model()
@@ -276,6 +276,16 @@ class Pix2Pix:
         utils.save_full_2d_pic(data_input[0][:, :, 2], 'input.png')
         utils.save_full_2d_pic(data_output[0][:, :, 2], 'ground_truth.png')
 
+    def print_summary(self):
+        self.generator.summary()
+        self.combined.summary()
+        models_dir = os.path.join(self.root_dir, 'pix2pix', 'models')
+        os.makedirs(models_dir, exist_ok=True)
+        plot_model(self.generator, to_file=os.path.join(models_dir, 'generator_model_plot.png'), show_shapes=True,
+                   show_layer_names=True)
+        plot_model(self.discriminator, to_file=os.path.join(models_dir, 'discriminator_model_plot.png'),
+                   show_shapes=True, show_layer_names=True)
+
 
 if __name__ == '__main__':
     # addition to running offline?
@@ -283,8 +293,8 @@ if __name__ == '__main__':
     #           sys.executable + " pix2pix.py --size 192 >result.txt" +
     #           "' &")
 
-    batch_size = 50  # in patches
-    gan = Pix2Pix(batch_size)
-    # gan.train(epochs=10, batch_size_in_patches=75, sample_interval_in_batches=-1)
-    # gan.save_model_and_progress_report()
+    batch_size = 75  # in patches
+    gan = Pix2Pix()
+    gan.train(epochs=1, batch_size_in_patches=batch_size, sample_interval_in_batches=-1)
+    gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()
