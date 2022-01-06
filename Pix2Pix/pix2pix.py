@@ -295,6 +295,6 @@ if __name__ == '__main__':
 
     batch_size = 75  # in patches
     gan = Pix2Pix()
-    gan.train(epochs=10, batch_size_in_patches=batch_size, sample_interval_in_batches=-1)
+    gan.train(epochs=1, batch_size_in_patches=batch_size, sample_interval_in_batches=-1)
     gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()
