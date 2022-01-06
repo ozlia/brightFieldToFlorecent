@@ -4,11 +4,11 @@
 
 - **Performance benchmarking over fluorescent imagery reconstruction using Python**
 
-  - [Background](@Background-and-Motivation)
-  - [Data](@Data-Observation)
-  - [Autoencoder](@Autoencoder)
-  - [Pix2Pix](@Pix2Pix)
-  - [Installation](@Installation-Requirements)
+  - [Background](#background-and-motivation)
+  - [Data](#data-observation)
+  - [Autoencoder](#autoencoder)
+  - [Pix2Pix](#pix2pix)
+  - [Installation](#installation-requirements)
 
 ## Main Project Objective
 
