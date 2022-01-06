@@ -18,11 +18,11 @@ import numpy as np
 import os
 import pandas as pd
 
-from Pix2Pix.pix_data_prepere import pix2pix_data_prepare
+from Pix2Pix.pix2pix_data_prepare_batches import pix2pix_data_prepare
 
 
 class Pix2Pix:
-    def __init__(self,batch_size=-1):
+    def __init__(self, batch_size=-1, print_summary=False):
         self.root_dir = '/home/tomrob/pix2pix'
         self.progress_report = {k: [] for k in ['Epoch', 'Batch', 'G Loss', 'D Loss']}
         # os.mkdir(self.root_dir)
@@ -35,7 +35,9 @@ class Pix2Pix:
         self.channels = self.img_shape[2]
 
         # Calculate patch size of D (PatchGAN)
-        patch = int(self.img_shape[1] / 2 ** 4)
+        # patchGAN_patch_size = 2 ** 4
+        patchGAN_patch_size = 2 ** 5
+        patch = int(self.img_shape[1] / patchGAN_patch_size)
         self.disc_patch = (patch, patch, self.img_shape[0])
 
         # Number of filters in the first layer of G and D
@@ -58,8 +60,6 @@ class Pix2Pix:
         # Build the generator
         self.generator = self.build_generator()
 
-        self.generator.summary()
-
         # Input images and their conditioning images
         real_fluorescent = Input(shape=self.img_shape)
         real_brightfield = Input(shape=self.img_shape)
@@ -74,13 +74,12 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=['mse', 'mae'],
+        self.combined.compile(loss=['binary_crossentropy', 'mae'],
                               loss_weights=[1, 100],
                               optimizer=self.optimizer)
-
-        self.combined.summary()
-
-
+        if print_summary:
+            self.generator.summary()
+            self.combined.summary()
 
     def build_generator(self):
         """U-Net Generator"""
@@ -107,24 +106,24 @@ class Pix2Pix:
         d0 = Input(shape=self.img_shape)
 
         # Downsampling
-        d1 = conv2d(d0, self.gf, bn=False)
-        d2 = conv2d(d1, self.gf * 2)
-        d3 = conv2d(d2, self.gf * 4)
-        d4 = conv2d(d3, self.gf * 8)
-        d5 = conv2d(d4, self.gf * 8)
-        d6 = conv2d(d5, self.gf * 8)
-        d7 = conv2d(d6, self.gf * 8)
+        d1 = conv2d(d0, self.gf, bn=False)  # 64
+        d2 = conv2d(d1, self.gf * 2)  # 128
+        d3 = conv2d(d2, self.gf * 4)  # 256
+        d4 = conv2d(d3, self.gf * 8)  # 512
+        d5 = conv2d(d4, self.gf * 16)  # 1024
+        # d6 = conv2d(d5, self.gf * 8)
+        # d7 = conv2d(d6, self.gf * 8)
 
         # Upsampling
-        u1 = deconv2d(d7, d6, self.gf * 8)
-        u2 = deconv2d(u1, d5, self.gf * 8)
-        u3 = deconv2d(u2, d4, self.gf * 8)
-        u4 = deconv2d(u3, d3, self.gf * 4)
-        u5 = deconv2d(u4, d2, self.gf * 2)
-        u6 = deconv2d(u5, d1, self.gf)
+        # u1 = deconv2d(d7, d6, self.gf * 8)
+        # u2 = deconv2d(d6, d5, self.gf * 8)
+        u3 = deconv2d(d5, d4, self.gf * 8)  # 512
+        u4 = deconv2d(u3, d3, self.gf * 4)  # 256
+        u5 = deconv2d(u4, d2, self.gf * 2)  # 128
+        u6 = deconv2d(u5, d1, self.gf)  # 64
 
         u7 = UpSampling2D(size=2)(u6)
-        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='tanh')(u7)
+        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='sigmoid')(u7)
 
         return Model(d0, output_img)
 
@@ -284,8 +283,8 @@ if __name__ == '__main__':
     #           sys.executable + " pix2pix.py --size 192 >result.txt" +
     #           "' &")
 
-    # batch_size = 50  # in patches
-    gan = Pix2Pix()
-    # gan.train(epochs=1, batch_size_in_patches=75, sample_interval_in_batches=-1)
+    batch_size = 50  # in patches
+    gan = Pix2Pix(batch_size)
+    # gan.train(epochs=10, batch_size_in_patches=75, sample_interval_in_batches=-1)
     # gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()

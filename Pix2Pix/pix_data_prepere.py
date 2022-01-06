@@ -26,13 +26,13 @@ class pix2pix_data_prepare():
         self.saved_input_imgs_fname = 'input_images_after_data_prepare.npy'
         self.saved_output_imgs_fname = 'output_images_after_data_prepare.npy'
 
-        self.limit = 150
+        self.limit = 35
         self.org_type = "Mitochondria/"
         self.images_paths = data_prepere.load_paths(self.org_type, limit=self.limit)
 
         # self.sample_range = np.arange(len(self.train_x))
 
-        # self.load_images()
+        self.load_images()
 
 
     def load_all_images_of_specific_organelle(self, data_input=None, data_output=None):

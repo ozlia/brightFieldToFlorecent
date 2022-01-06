@@ -9,23 +9,25 @@ import getpass
 from sklearn.model_selection import train_test_split
 
 USER = getpass.getuser().split("@")[0]
-DIRECTORY = "/home/%s/prediction3D_OLD" % USER
+DIRECTORY = "/home/%s/prediction3D" % USER
 os.makedirs(DIRECTORY, exist_ok=True)
 
 
 class pix2pix_data_prepare():
     def __init__(self, batch_size=128):
-        self.batch_size = batch_size
+        self.batch_size = 16
 
-        self.patches_batches_dirs_paths: dict = None
+        self.patches_batches_dirs_paths = dict()
 
         self.img_size = (6, 128, 128)  # (z,y,x)
         self.img_size_rev = (self.img_size[1], self.img_size[2], self.img_size[0])
         self.saved_input_imgs_fname = 'input_images_after_data_prepare.npy'
         self.saved_output_imgs_fname = 'output_images_after_data_prepare.npy'
 
-        self.limit = 150
+        self.limit = 2 #150
         self.org_type = "Mitochondria/"
+        # self.num_images_loaded_to_memory = 30
+        self.num_images_loaded_to_memory = 1
 
         self.setup_batches_patches()
 
@@ -62,10 +64,9 @@ class pix2pix_data_prepare():
         if imgs_paths is None or not train_test_dir_name or f'brightfield_{train_test_dir_name}' not in self.patches_batches_dirs_paths:
             return
 
-        num_images_loaded_to_memory = 30
-        num_iters = int(math.ceil((len(imgs_paths) / num_images_loaded_to_memory)))
+        num_iters = int(math.ceil((len(imgs_paths) / self.num_images_loaded_to_memory)))
         num_batches_patches = self.calc_num_batches(origin_img_dims=self.img_size_rev,
-                                                    num_imgs_loaded=num_images_loaded_to_memory)
+                                                    num_imgs_loaded=self.num_images_loaded_to_memory)
 
         brightfield_target_dir_name = self.patches_batches_dirs_paths[f'brightfield_{train_test_dir_name}']
         fluorescent_target_dir_name = self.patches_batches_dirs_paths[f'fluorescent_{train_test_dir_name}']
@@ -73,7 +74,7 @@ class pix2pix_data_prepare():
         for i in range(num_iters):
             start_idx_imgs = i * num_iters
             brightfield_img_batch, fluorescent_img_batch = data_prepere.separate_data(
-                imgs_paths[start_idx_imgs:start_idx_imgs + num_images_loaded_to_memory],
+                imgs_paths[start_idx_imgs:start_idx_imgs + self.num_images_loaded_to_memory],
                 self.img_size)
             brightfield_img_batch = utils.transform_dimensions(brightfield_img_batch, [0, 2, 3, 1])
             fluorescent_img_batch = utils.transform_dimensions(fluorescent_img_batch, [0, 2, 3, 1])
