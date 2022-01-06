@@ -33,19 +33,22 @@ def save_img(data_input, data_output, predictions):
     Image.fromarray(np.squeeze(predictions) * 255).convert('L').save('%s/prediction.png' % DIRECTORY)
     Image.fromarray(np.squeeze(data_output) * 255).convert('L').save('%s/original.png' % DIRECTORY)
 
-    # todo needs work on defining metrics
-    def evaluate(test_data_input, test_data_output, metrics):
-        """
-        prints evaluation
-        @param metrics: chosen evaluation metric
-        @param test_data_input: list of patches in bright_field
-        @param test_data_output: list of patches in fluorescent
-        @return: prints metrics results
-        """
-        # # # Evaluate the model on the test data using `evaluate`
-        print("Evaluate on test data")
-        results = metrics.evaluate(test_data_input, test_data_output)
-        print("test loss, test acc:", results)
+
+# todo needs work on defining metrics
+def evaluate(test_data_input, test_data_output, metrics):
+    """
+    prints evaluation
+    @param metrics: chosen evaluation metric
+    @param test_data_input: list of patches in bright_field
+    @param test_data_output: list of patches in fluorescent
+    @return: prints metrics results
+    """
+    # # # Evaluate the model on the test data using `evaluate`
+    print("Evaluate on test data")
+    test_results = []
+    for i in range(len(test_data_input)):
+        test_results.append(metrics(test_data_input[i], test_data_output[i]))
+    print("test evaluation results: ", np.average(test_results))
 
 
 def norm_img(img):

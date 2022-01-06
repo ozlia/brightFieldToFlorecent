@@ -105,11 +105,3 @@ class AutoEncoder(ICNN):
         """
         path = self.dir + model_dir
         self.model = keras.models.load_model(path)
-
-    @staticmethod
-    def weighted_mse(yTrue, yPred):
-
-        ones = keras.backend.ones_like(yTrue[0, :])
-        idx = keras.backend.cumsum(ones)
-
-        return keras.backend.mean((1 / idx) * keras.backend.square(yTrue - yPred))
