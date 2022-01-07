@@ -1,6 +1,8 @@
 from tensorflow import keras
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU
-from patchify import patchify, unpatchify
+from tensorflow.keras.callbacks import CSVLogger
+from patchify import unpatchify
+from datetime import datetime
 import utils
 from ICNN import ICNN
 import getpass
@@ -58,17 +60,19 @@ class AutoEncoder(ICNN):
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
-    def train(self, train_x, train_label, val_set=0.0, model_dir="/model2D_full/"):
+    def train(self, train_x, train_label, val_set=0.0, model_dir="model3D_full"):
+        save_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
+        model_dir = "%s/%s_%s/" % (self.dir, model_dir, save_time)
         # train_x = utils.transform_dimensions(train_x, [0, 2, 3, 1])
         # train_label = utils.transform_dimensions(train_label, [0, 2, 3, 1])
-        model_dir = self.dir + model_dir
+        # model_dir = self.dir + model_dir
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
-
         model = self.model
         model.summary()
         callbacks = [
-            keras.callbacks.ModelCheckpoint("%s/BasicAEModel3D.h5" % self.dir, save_best_only=True)
+            keras.callbacks.ModelCheckpoint("%sBasicAEModel3D.h5" % model_dir, save_best_only=True),
+            CSVLogger('%slog_%s.csv' % (model_dir, save_time), append=True, separator=';')
         ]
         model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
                   validation_split=val_set,
