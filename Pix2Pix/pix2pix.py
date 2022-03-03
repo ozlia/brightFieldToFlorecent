@@ -1,7 +1,6 @@
 from __future__ import print_function, division
 
 import sys
-
 from tensorflow.keras.utils import plot_model
 from patchify import unpatchify
 
@@ -9,8 +8,10 @@ import utils
 
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model, load_model, save_model
-from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D,Activation
+from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
+    Activation
 from tensorflow.keras.optimizers import Adam
+from sporco.metric import psnr
 
 import datetime
 import matplotlib.pyplot as plt
@@ -19,7 +20,7 @@ import os
 import pandas as pd
 
 from Pix2Pix.pix_data_prepere import pix2pix_data_prepare
-
+from Pix2Pix.custom_metrics import psnr
 
 class Pix2Pix:
     def __init__(self, batch_size=-1, print_summary=False):
@@ -35,10 +36,9 @@ class Pix2Pix:
         self.channels = self.img_shape[2]
 
         # Calculate patch size of D (PatchGAN)
-        patchGAN_patch_size = 2 ** 4
-        # patchGAN_patch_size = 2 ** 5 #TODO needs fixing for arc
+        patchGAN_patch_size = 2 ** 6 #2 ** 5
         patch = int(self.img_shape[1] / patchGAN_patch_size)
-        self.disc_patch = (patch, patch, self.img_shape[0])
+        self.disc_patch = (patch, patch,1)
 
         # Number of filters in the first layer of G and D
         self.gf = 64
@@ -74,8 +74,8 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=['binary_crossentropy', 'mae'],
-                              loss_weights=[1, 1],
+        self.combined.compile(loss=['binary_crossentropy','mae'], #try r2 too
+                              loss_weights=[1, 100],
                               optimizer=self.optimizer)
         if print_summary:
             self.print_summary()
@@ -105,33 +105,35 @@ class Pix2Pix:
         d0 = Input(shape=self.img_shape)
 
         # Downsampling
-        d1 = conv2d(d0, self.gf, bn=False)  # 64
-        d2 = conv2d(d1, self.gf * 2)  # 128
-        d3 = conv2d(d2, self.gf * 4)  # 256
-        d4 = conv2d(d3, self.gf * 8)  # 512
-        d5 = conv2d(d4, self.gf * 16)  # 1024
-        # d6 = conv2d(d5, self.gf * 8)
-        # d7 = conv2d(d6, self.gf * 8)
+        d1 = conv2d(d0, self.gf, bn=False) # (64,64), 64
+        d2 = conv2d(d1, self.gf*2) # (32,32), 128
+        d3 = conv2d(d2, self.gf*4) # (16,16),256
+        d4 = conv2d(d3, self.gf*8) # (8,8),512
+        d5 = conv2d(d4, self.gf*8)  #(4,4),512
+        d6 = conv2d(d5, self.gf*8) #((2,2),512
+        d7 = conv2d(d6, self.gf*8) #((1,1),512
 
         # Upsampling
-        # u1 = deconv2d(d7, d6, self.gf * 8)
-        # u2 = deconv2d(d6, d5, self.gf * 8)
-        u3 = deconv2d(d5, d4, self.gf * 8)  # 512
-        u4 = deconv2d(u3, d3, self.gf * 4)  # 256
-        u5 = deconv2d(u4, d2, self.gf * 2)  # 128
-        u6 = deconv2d(u5, d1, self.gf)  # 64
+        u1 = deconv2d(d7, d6, self.gf*8) #2
+        u2 = deconv2d(u1, d5, self.gf*8) #4
+        u3 = deconv2d(u2, d4, self.gf*8) #8
+        u4 = deconv2d(u3, d3, self.gf * 4)  # 16
+        u5 = deconv2d(u4, d2, self.gf*2) #32
+        u6 = deconv2d(u5, d1, self.gf) #64
+        u7 = UpSampling2D(size=2)(u6) #128
 
-        u7 = UpSampling2D(size=2)(u6)
-        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='sigmoid')(u7)
+        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='tanh')(u7) #sigmoid
 
         return Model(d0, output_img)
 
     def build_discriminator(self):
 
-        def d_layer(layer_input, filters, f_size=4, bn=True):
+        def d_layer(layer_input, filters, f_size=4, bn=True,dropout_rate=0):
             """Discriminator layer"""
             d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
             d = LeakyReLU(alpha=0.2)(d)
+            if dropout_rate > 0:
+                d = Dropout(dropout_rate)(d)
             if bn:
                 d = BatchNormalization(momentum=0.8)(d)
             return d
@@ -142,13 +144,18 @@ class Pix2Pix:
         # Concatenate image and conditioning image by channels to produce input
         combined_imgs = Concatenate(axis=-1)([img_A, img_B])
 
-        d1 = d_layer(combined_imgs, self.df, bn=False)
-        d2 = d_layer(d1, self.df * 2)
-        d3 = d_layer(d2, self.df * 4)
-        d4 = d_layer(d3, self.df * 8)
+        d1 = d_layer(combined_imgs, self.df, bn=False) #64
+        d2 = d_layer(d1, self.df * 2) #32
+        d3 = d_layer(d2, self.df * 4) #16
+        d4 = d_layer(d3, self.df * 8) #8
+        d5 = d_layer(d4, self.df * 8) #4
+        d6 = d_layer(d5, self.df * 8)  # 2
+        # d7 = d_layer(d6, self.df * 16)  # 1
 
-        validity = Conv2D(1, kernel_size=4, strides=1, padding='same')(d4)
-        # validity = Activation('sigmoid')(validity)
+        validity = Conv2D(1, kernel_size=4, strides=1, padding='same')(d6) #patch size 32x32
+
+        # TODO activation new
+        validity = Activation('sigmoid')(validity)
 
         return Model([img_A, img_B], validity)
 
@@ -159,6 +166,8 @@ class Pix2Pix:
         valid = np.ones((batch_size_in_patches,) + self.disc_patch)
         fake = np.zeros((batch_size_in_patches,) + self.disc_patch)
 
+        d_loss = (0, 0)
+
         for epoch in range(epochs):
             for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
                     self.data_preper.load_images_as_batches(batch_size=batch_size_in_patches)):
@@ -166,13 +175,17 @@ class Pix2Pix:
                 #  Train Discriminator
                 # ---------------------
 
-                # Condition on B and generate a translated version
+                # fake_fluorescent_batch = self.generator.predict(real_brightfield_batch)
                 fake_fluorescent_batch = self.generator.predict(real_brightfield_batch)
 
                 # Train the discriminators (original images = real / generated = Fake)
-                d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch], valid)
-                d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch], fake)
-                d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+                # leaning towards training generator better
+                if batch_i % 2 == 0: #supposed to give more time for the generator to train
+                    d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
+                                                                    valid)
+                    d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
+                                                                    fake)
+                    d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
                 # -----------------
                 #  Train Generator
@@ -186,8 +199,8 @@ class Pix2Pix:
                                        g_loss=g_loss, start_time=start_time)
 
                 # If at save interval => save generated image samples
-                # if ((batch_i + 1) % sample_interval_in_batches) == 0:
-            self.sample_images(epoch, 0)
+                if ((batch_i + 1) % sample_interval_in_batches) == 0:
+                    self.sample_images(epoch, batch_i + 1)
 
     def sample_images(self, epoch, batch_i):
 
@@ -195,7 +208,8 @@ class Pix2Pix:
         os.makedirs(images_root_dir, exist_ok=True)
         rows, cols = 3, 3  # num imgs over 3
         brightfield, fluorescent = self.data_preper.load_images_as_batches(batch_size=1, sample_size=3).__next__()
-        gen_fluorescent = self.generator.predict_on_batch(brightfield)
+        gen_fluorescent = self.generator.predict(brightfield)
+        res = np.squeeze(gen_fluorescent[:, :, :, 0])
         # gen_imgs = np.concatenate([brightfield, np.squeeze(gen_fluorescent), fluorescent])
         gen_imgs = np.concatenate(
             [brightfield[:, :, :, 0], np.squeeze(gen_fluorescent[:, :, :, 0]), fluorescent[:, :, :, 0]])
@@ -238,8 +252,9 @@ class Pix2Pix:
         if not target_path:
             target_path = os.path.join(self.root_dir, 'models')
         # try:
-        # self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'))
-        self.generator = load_model(filepath=os.path.join(target_path, 'generator_model'))
+        # self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'),compile=False)
+        self.generator = load_model(filepath=os.path.join(target_path, 'generator_model'), compile=False)
+
         # self.discriminator = load_model(filepath=os.path.join(target_path, 'discriminator_model'))
         # except:
         # raise FileNotFoundError(f'Could not load models from path: {target_path}')
@@ -278,13 +293,14 @@ class Pix2Pix:
 
     def print_summary(self):
         self.generator.summary()
-        self.combined.summary()
-        models_dir = os.path.join(self.root_dir, 'pix2pix', 'models')
-        os.makedirs(models_dir, exist_ok=True)
-        plot_model(self.generator, to_file=os.path.join(models_dir, 'generator_model_plot.png'), show_shapes=True,
-                   show_layer_names=True)
-        plot_model(self.discriminator, to_file=os.path.join(models_dir, 'discriminator_model_plot.png'),
-                   show_shapes=True, show_layer_names=True)
+        self.discriminator.summary()
+        # self.combined.summary()
+        # models_dir = os.path.join(self.root_dir, 'pix2pix', 'models')
+        # os.makedirs(models_dir, exist_ok=True)
+        # plot_model(self.generator, to_file=os.path.join(models_dir, 'generator_model_plot.png'), show_shapes=True,
+        #            show_layer_names=True)
+        # plot_model(self.discriminator, to_file=os.path.join(models_dir, 'discriminator_model_plot.png'),
+        #            show_shapes=True, show_layer_names=True)
 
 
 if __name__ == '__main__':
@@ -293,8 +309,11 @@ if __name__ == '__main__':
     #           sys.executable + " pix2pix.py --size 192 >result.txt" +
     #           "' &")
 
-    batch_size = 75  # in patches
-    gan = Pix2Pix()
-    gan.train(epochs=1, batch_size_in_patches=batch_size, sample_interval_in_batches=-1)
+    batch_size = 75
+    print_summary = False
+    sample_interval_in_batches = 49
+
+    gan = Pix2Pix(print_summary=print_summary)
+    gan.train(epochs=50, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
     gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()

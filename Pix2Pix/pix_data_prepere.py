@@ -1,7 +1,7 @@
 import os
 import sys
 
-import data_prepere
+import data_prepare
 import utils
 import numpy as np
 import getpass
@@ -26,9 +26,10 @@ class pix2pix_data_prepare():
         self.saved_input_imgs_fname = 'input_images_after_data_prepare.npy'
         self.saved_output_imgs_fname = 'output_images_after_data_prepare.npy'
 
-        self.limit = 150
-        self.org_type = "Mitochondria/"
-        self.images_paths = data_prepere.load_paths(self.org_type, limit=self.limit)
+        self.limit = 100
+        # self.org_type = "Mitochondria/"
+        self.org_type = "Nuclear-envelope/"
+        self.images_paths = data_prepare.load_paths(self.org_type, limit=self.limit)
 
         # self.sample_range = np.arange(len(self.train_x))
 
@@ -76,7 +77,7 @@ class pix2pix_data_prepare():
         self.test_y = None
 
     def save_images_of_specific_organelle(self):
-        data_input, data_output = data_prepere.separate_data(self.images_paths,self.img_size)
+        data_input, data_output = data_prepare.separate_data(self.images_paths,self.img_size)
         utils.save_numpy_array(data_input, "input_images_after_data_prepare")
         utils.save_numpy_array(data_output, "output_images_after_data_prepare")
         return data_input, data_output
