@@ -7,13 +7,13 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import backend as KB
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
-
+from dcae_blocks.DCAE_Chain import DCAE_Chain
 
 img_size = (6, 64, 64)    # (x,y,z)
 img_size_rev = (img_size[1], img_size[2], img_size[0])
 batch_size = 32
 epochs = 1000
-limit = 150
+limit = 1
 org_type = "Mitochondria/"  # change the organelle name
 
 
@@ -38,7 +38,8 @@ print('Done Reading and Patching, Time: ', stop - start)
 # Free up RAM in case the model definition cells were run multiple times
 KB.clear_session()
 print("init model")
-model = AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size)
+# model = AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size)
+model = DCAE_Chain(3, img_size_rev)
 print("training model")
 train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
                                                     shuffle=True)

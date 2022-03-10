@@ -37,6 +37,8 @@ class AutoEncoder(ICNN):
         x = Conv2D(64, (2, 2), strides=stride, activation="relu", padding="same")(x)
         x = Conv2D(128, (2, 2), strides=stride, activation="relu", padding="same")(x)
 
+        # flatten could be useful
+
         # decoder
         x = (Conv2DTranspose(128, (3, 3), strides=stride, padding="same"))(x)
         x = LeakyReLU()(x)
