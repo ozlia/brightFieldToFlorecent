@@ -9,7 +9,7 @@ import utils
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
-    Activation
+    Activation,Flatten,Dense
 from tensorflow.keras.optimizers import Adam
 from Pix2Pix.custom_metrics import wasserstein_loss
 
@@ -42,9 +42,9 @@ class Pix2Pix:
 
         # Number of filters in the first layer of G and D
         self.gf = 64
-        self.df = 32
+        self.df = 16
 
-        self.optimizer = Adam(0.00005, 0.5)
+        self.optimizer = Adam(0.00005)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -78,7 +78,7 @@ class Pix2Pix:
         if print_summary:
             self.print_summary()
 
-    def build_generator(self):
+    def build_generator(self): #TODO change to regular unet, not working good enough
         """U-Net Generator"""
 
         def conv2d(layer_input, filters, f_size=4, bn=True):
@@ -108,12 +108,10 @@ class Pix2Pix:
         d2 = conv2d(d1, self.gf * 2)
         d3 = conv2d(d2, self.gf * 4)
         d4 = conv2d(d3, self.gf * 8)
-        d5 = conv2d(d4, self.gf * 8)
-        d6 = conv2d(d5, self.gf * 16)
+        d5 = conv2d(d4, self.gf * 16)
 
         # Upsampling
-        u1 = deconv2d(d6, d5, self.gf * 8)
-        u2 = deconv2d(u1, d4, self.gf * 8)
+        u2 = deconv2d(d5, d4, self.gf * 8)
         u3 = deconv2d(u2, d3, self.gf * 4)
         u4 = deconv2d(u3, d2, self.gf * 2)
         u5 = deconv2d(u4, d1, self.gf)
@@ -141,12 +139,14 @@ class Pix2Pix:
         # Concatenate image and conditioning image by channels to produce input
         combined_imgs = Concatenate(axis=-1)([img_A, img_B])
 
-        d1 = d_layer(combined_imgs, self.df, bn=False)
+        d1 = d_layer(combined_imgs, self.df)
         d2 = d_layer(d1, self.df * 2)
         d3 = d_layer(d2, self.df * 4)
         d4 = d_layer(d3, self.df * 8)
-
-        validity = Conv2D(1, kernel_size=4, strides=1, padding='same', activation='sigmoid')(d4)
+        validity = Flatten()(d4)
+        validity = Dense(1)(validity)
+        validity = Activation('sigmoid')(validity)
+        # validity = Conv2D(1, kernel_size=4, strides=1, padding='same', activation='sigmoid')(d4)
 
         return Model([img_A, img_B], validity)
 
@@ -154,9 +154,10 @@ class Pix2Pix:
         start_time = datetime.datetime.now()
 
         # Adversarial loss ground truths
-        valid = np.ones((batch_size_in_patches,) + self.disc_patch)
-        fake = np.zeros((batch_size_in_patches,) + self.disc_patch)
-
+        # valid = np.ones((batch_size_in_patches,) + self.disc_patch)
+        # fake = np.zeros((batch_size_in_patches,) + self.disc_patch)
+        valid = np.ones((batch_size_in_patches,1))
+        fake = np.zeros((batch_size_in_patches,1))
         d_loss = (0, 0)
 
         for epoch in range(epochs):
@@ -171,12 +172,12 @@ class Pix2Pix:
 
                 # Train the discriminators (original images = real / generated = Fake)
                 # leaning towards training generator better
-                # if batch_i % 2 == 0: #supposed to give more time for the generator to train
-                d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
-                                                                valid)
-                d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
-                                                                fake)
-                d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+                if batch_i % 2 == 0: #supposed to give more time for the generator to train
+                    d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
+                                                                    valid)
+                    d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
+                                                                    fake)
+                    d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
                 # -----------------
                 #  Train Generator
@@ -303,11 +304,11 @@ if __name__ == '__main__':
     #           sys.executable + " pix2pix.py --size 192 >result.txt" +
     #           "' &")
 
-    batch_size = 50
+    batch_size = 10
     print_summary = False
-    sample_interval_in_batches = 36
+    sample_interval_in_batches = 79
 
     gan = Pix2Pix(print_summary=print_summary)
-    gan.train(epochs=5, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
+    gan.train(epochs=20, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
     # gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()
