@@ -161,7 +161,7 @@ class Pix2Pix:
 
         for epoch in range(epochs):
             for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
-                    self.data_preper.load_igit mages_as_batches(batch_size=batch_size_in_patches)):
+                    self.data_preper.load_images_as_batches(batch_size=batch_size_in_patches)):
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
