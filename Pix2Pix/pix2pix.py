@@ -2,6 +2,7 @@ from __future__ import print_function, division
 
 import sys
 
+from keras.layers import Activation
 from tensorflow.keras.utils import plot_model
 from patchify import unpatchify
 
@@ -9,7 +10,7 @@ import utils
 
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model, load_model, save_model
-from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D,Activation
+from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D,ReLU
 from tensorflow.keras.optimizers import Adam
 
 import datetime
@@ -86,18 +87,19 @@ class Pix2Pix:
         def conv2d(layer_input, filters, f_size=4, bn=True):
             """Layers used during downsampling"""
             d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
-            d = LeakyReLU(alpha=0.2)(d)
             if bn:
-                d = BatchNormalization(momentum=0.8)(d)
+                d = BatchNormalization()(d) #momentum=0.8
+            d = LeakyReLU()(d) #alpha=0.2
             return d
 
         def deconv2d(layer_input, skip_input, filters, f_size=4, dropout_rate=0):
             """Layers used during upsampling"""
             u = UpSampling2D(size=2)(layer_input)
-            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same', activation='relu')(u)
-            if dropout_rate:
+            u = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(u)
+            if dropout_rate > 0:
                 u = Dropout(dropout_rate)(u)
-            u = BatchNormalization(momentum=0.8)(u)
+            u = BatchNormalization()(u) #momentum=0.8
+            u = ReLU()(u)
             u = Concatenate()([u, skip_input])
             return u
 
@@ -131,9 +133,9 @@ class Pix2Pix:
         def d_layer(layer_input, filters, f_size=4, bn=True):
             """Discriminator layer"""
             d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
-            d = LeakyReLU(alpha=0.2)(d)
             if bn:
                 d = BatchNormalization(momentum=0.8)(d)
+            d = LeakyReLU(alpha=0.2)(d)
             return d
 
         img_A = Input(shape=self.img_shape)
@@ -148,7 +150,7 @@ class Pix2Pix:
         d4 = d_layer(d3, self.df * 8)
 
         validity = Conv2D(1, kernel_size=4, strides=1, padding='same')(d4)
-        # validity = Activation('sigmoid')(validity)
+        validity = Activation('sigmoid')(validity)
 
         return Model([img_A, img_B], validity)
 

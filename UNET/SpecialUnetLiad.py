@@ -1,68 +1,70 @@
+from keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, Dropout, concatenate, MaxPooling2D, Input
 from tensorflow.keras.callbacks import CSVLogger
 from tensorflow.keras import Model, models, callbacks
 from patchify import unpatchify
 from datetime import datetime
 import utils
-from ICNN import ICNN
+from UNET.iUNet import iUNet
 import getpass
 import os
 
 
-class Unet:
+class SpecialUNet:
 
     def __init__(self, input_dim=(128, 128, 6), batch_size=32, epochs=1000):
         inputs = Input(shape=input_dim)
 
         # encoder
         c1 = Conv2D(16, (3, 3,), activation='relu', padding='same')(inputs)
-        c1 = Dropout(0.1)(c1)
         c1 = Conv2D(16, (3, 3), activation='relu', padding='same')(c1)
         c2 = MaxPooling2D((2, 2))(c1)
 
         c2 = Conv2D(32, (3, 3), activation='relu', padding='same')(c2)
-        c2 = Dropout(0.1)(c2)
         c2 = Conv2D(32, (3, 3), activation='relu', padding='same')(c2)
         c3 = MaxPooling2D((2, 2))(c2)
 
         c3 = Conv2D(64, (3, 3), activation='relu', padding='same')(c3)
-        c3 = Dropout(0.1)(c3)
         c3 = Conv2D(64, (3, 3), activation='relu', padding='same')(c3)
         c4 = MaxPooling2D((2, 2))(c3)
 
         c4 = Conv2D(128, (3, 3), activation='relu', padding='same')(c4)
-        c4 = Dropout(0.1)(c4)
         c4 = Conv2D(128, (3, 3), activation='relu', padding='same')(c4)
         c5 = MaxPooling2D((2, 2))(c4)
 
         # embedding
         c5 = Conv2D(256, (3, 3), activation='relu', padding='same')(c5)
-        c5 = Dropout(0.1)(c5)
         u6 = Conv2DTranspose(256, (3, 3), strides=2, activation='relu', padding='same')(c5)
 
         # decoder
         u6 = concatenate([u6, c4])
-        c6 = Conv2DTranspose(128, (3, 3), activation='relu', padding='same')(u6)
-        c6 = Dropout(0.2)(c6)
-        u7 = Conv2DTranspose(128, (3, 3), strides=2, activation='relu', padding='same')(c6)
+        c6 = Conv2DTranspose(128, (3, 3), padding='same')(u6)
+        c6 = LeakyReLU()(c6)
+        u7 = Conv2DTranspose(128, (3, 3), strides=2, padding='same')(c6)
+        u7 = LeakyReLU()(u7)
 
         u7 = concatenate([u7, c3])
-        c7 = Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(u7)
-        c7 = Dropout(0.2)(c7)
-        u8 = Conv2DTranspose(64, (3, 3), strides=2, activation='relu', padding='same')(c7)
+        c7 = Conv2DTranspose(64, (3, 3), padding='same')(u7)
+        c7 = LeakyReLU()(c7)
+        u8 = Conv2DTranspose(64, (3, 3), strides=2, padding='same')(c7)
+        u8 = LeakyReLU()(u8)
 
         u8 = concatenate([u8, c2])
-        c8 = Conv2DTranspose(32, (3, 3), activation='relu', padding='same')(u8)
-        c8 = Dropout(0.2)(c8)
+        c8 = Conv2DTranspose(32, (3, 3), padding='same')(u8)
+        c8 = LeakyReLU()(c8)
         u9 = Conv2DTranspose(32, (3, 3), strides=2, activation='relu', padding='same')(c8)
+        u9 = LeakyReLU()(u9)
 
         u9 = concatenate([u9, c1])
-        c9 = Conv2DTranspose(16, (3, 3), activation='relu', padding='same')(u9)
-        c9 = Conv2DTranspose(16, (3, 3), activation='relu', padding='same')(c9)
+        c9 = Conv2DTranspose(16, (3, 3), padding='same')(u9)
+        c9 = LeakyReLU()(c9)
+        c9 = Conv2DTranspose(16, (3, 3), padding='same')(c9)
+        c9 = LeakyReLU()(c9)
         outputs = Conv2D(input_dim[2], (3, 3), activation='sigmoid', padding='same', name='decoder_output')(c9)
 
         model = Model(inputs, outputs)
-        model.compile(optimizer="adam", loss='mse')
+        # optimizer = Adam(0.0002, 0.5)
+        model.compile(optimizer='adam', loss='mae')
         self.model = model
         self.input_dim = input_dim
         self.batch_size = batch_size
