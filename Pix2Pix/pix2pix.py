@@ -11,7 +11,7 @@ from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
     Activation
 from tensorflow.keras.optimizers import Adam
-from sporco.metric import psnr
+from Pix2Pix.custom_metrics import wasserstein_loss
 
 import datetime
 import matplotlib.pyplot as plt
@@ -20,7 +20,7 @@ import os
 import pandas as pd
 
 from Pix2Pix.pix_data_prepere import pix2pix_data_prepare
-from Pix2Pix.custom_metrics import psnr
+
 
 class Pix2Pix:
     def __init__(self, batch_size=-1, print_summary=False):
@@ -36,21 +36,19 @@ class Pix2Pix:
         self.channels = self.img_shape[2]
 
         # Calculate patch size of D (PatchGAN)
-        patchGAN_patch_size = 2 ** 6 #2 ** 5
+        patchGAN_patch_size = 2 ** 4  # 2 ** 5
         patch = int(self.img_shape[1] / patchGAN_patch_size)
-        self.disc_patch = (patch, patch,1)
+        self.disc_patch = (patch, patch, 1)
 
         # Number of filters in the first layer of G and D
         self.gf = 64
-        self.df = 64
+        self.df = 32
 
-        self.optimizer = Adam(0.0002, 0.5)
+        self.optimizer = Adam(0.00005, 0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
-        self.discriminator.compile(loss='binary_crossentropy',
-                                   optimizer=self.optimizer,
-                                   metrics=['accuracy'])
+        self.discriminator.compile(loss='binary_crossentropy', optimizer=self.optimizer)  # 'binary_crossentropy'
 
         # -------------------------
         # Construct Computational
@@ -74,7 +72,7 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=['binary_crossentropy','mae'], #try r2 too
+        self.combined.compile(loss=['binary_crossentropy', 'mae'],  # bce
                               loss_weights=[1, 100],
                               optimizer=self.optimizer)
         if print_summary:
@@ -86,18 +84,19 @@ class Pix2Pix:
         def conv2d(layer_input, filters, f_size=4, bn=True):
             """Layers used during downsampling"""
             d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
-            d = LeakyReLU(alpha=0.2)(d)
             if bn:
                 d = BatchNormalization(momentum=0.8)(d)
+            d = LeakyReLU(alpha=0.2)(d)
             return d
 
         def deconv2d(layer_input, skip_input, filters, f_size=4, dropout_rate=0):
             """Layers used during upsampling"""
             u = UpSampling2D(size=2)(layer_input)
-            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same', activation='relu')(u)
+            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same')(u)
             if dropout_rate:
                 u = Dropout(dropout_rate)(u)
             u = BatchNormalization(momentum=0.8)(u)
+            u = LeakyReLU(alpha=0.2)(u)
             u = Concatenate()([u, skip_input])
             return u
 
@@ -105,30 +104,28 @@ class Pix2Pix:
         d0 = Input(shape=self.img_shape)
 
         # Downsampling
-        d1 = conv2d(d0, self.gf, bn=False) # (64,64), 64
-        d2 = conv2d(d1, self.gf*2) # (32,32), 128
-        d3 = conv2d(d2, self.gf*4) # (16,16),256
-        d4 = conv2d(d3, self.gf*8) # (8,8),512
-        d5 = conv2d(d4, self.gf*8)  #(4,4),512
-        d6 = conv2d(d5, self.gf*8) #((2,2),512
-        d7 = conv2d(d6, self.gf*8) #((1,1),512
+        d1 = conv2d(d0, self.gf, bn=False)
+        d2 = conv2d(d1, self.gf * 2)
+        d3 = conv2d(d2, self.gf * 4)
+        d4 = conv2d(d3, self.gf * 8)
+        d5 = conv2d(d4, self.gf * 8)
+        d6 = conv2d(d5, self.gf * 16)
 
         # Upsampling
-        u1 = deconv2d(d7, d6, self.gf*8) #2
-        u2 = deconv2d(u1, d5, self.gf*8) #4
-        u3 = deconv2d(u2, d4, self.gf*8) #8
-        u4 = deconv2d(u3, d3, self.gf * 4)  # 16
-        u5 = deconv2d(u4, d2, self.gf*2) #32
-        u6 = deconv2d(u5, d1, self.gf) #64
-        u7 = UpSampling2D(size=2)(u6) #128
+        u1 = deconv2d(d6, d5, self.gf * 8)
+        u2 = deconv2d(u1, d4, self.gf * 8)
+        u3 = deconv2d(u2, d3, self.gf * 4)
+        u4 = deconv2d(u3, d2, self.gf * 2)
+        u5 = deconv2d(u4, d1, self.gf)
 
-        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='tanh')(u7) #sigmoid
+        u6 = UpSampling2D(size=2)(u5)
+        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='sigmoid')(u6)
 
         return Model(d0, output_img)
 
     def build_discriminator(self):
 
-        def d_layer(layer_input, filters, f_size=4, bn=True,dropout_rate=0):
+        def d_layer(layer_input, filters, f_size=4, bn=True, dropout_rate=0):
             """Discriminator layer"""
             d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
             d = LeakyReLU(alpha=0.2)(d)
@@ -144,18 +141,12 @@ class Pix2Pix:
         # Concatenate image and conditioning image by channels to produce input
         combined_imgs = Concatenate(axis=-1)([img_A, img_B])
 
-        d1 = d_layer(combined_imgs, self.df, bn=False) #64
-        d2 = d_layer(d1, self.df * 2) #32
-        d3 = d_layer(d2, self.df * 4) #16
-        d4 = d_layer(d3, self.df * 8) #8
-        d5 = d_layer(d4, self.df * 8) #4
-        d6 = d_layer(d5, self.df * 8)  # 2
-        # d7 = d_layer(d6, self.df * 16)  # 1
+        d1 = d_layer(combined_imgs, self.df, bn=False)
+        d2 = d_layer(d1, self.df * 2)
+        d3 = d_layer(d2, self.df * 4)
+        d4 = d_layer(d3, self.df * 8)
 
-        validity = Conv2D(1, kernel_size=4, strides=1, padding='same')(d6) #patch size 32x32
-
-        # TODO activation new
-        validity = Activation('sigmoid')(validity)
+        validity = Conv2D(1, kernel_size=4, strides=1, padding='same', activation='sigmoid')(d4)
 
         return Model([img_A, img_B], validity)
 
@@ -170,7 +161,7 @@ class Pix2Pix:
 
         for epoch in range(epochs):
             for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
-                    self.data_preper.load_images_as_batches(batch_size=batch_size_in_patches)):
+                    self.data_preper.load_igit mages_as_batches(batch_size=batch_size_in_patches)):
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
@@ -180,12 +171,12 @@ class Pix2Pix:
 
                 # Train the discriminators (original images = real / generated = Fake)
                 # leaning towards training generator better
-                if batch_i % 2 == 0: #supposed to give more time for the generator to train
-                    d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
-                                                                    valid)
-                    d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
-                                                                    fake)
-                    d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+                # if batch_i % 2 == 0: #supposed to give more time for the generator to train
+                d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
+                                                                valid)
+                d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
+                                                                fake)
+                d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
                 # -----------------
                 #  Train Generator
@@ -262,20 +253,23 @@ class Pix2Pix:
     def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time):
         elapsed_time = datetime.datetime.now() - start_time
 
-        for k, v in zip(self.progress_report.keys(), [curr_epoch, curr_batch, g_loss[0], d_loss[0]]):
+        for k, v in zip(self.progress_report.keys(), [curr_epoch, curr_batch, g_loss[0], d_loss]):
             self.progress_report[k].append(v)
 
-        print("[Epoch %d/%d] [Batch %d] [D loss: %f, acc: %3d%%] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
-                                                                                           curr_batch,
-                                                                                           d_loss[0],
-                                                                                           100 * d_loss[1],
-                                                                                           g_loss[0],
-                                                                                           elapsed_time))
+        print("[Epoch %d/%d] [Batch %d] [D loss: %f] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
+                                                                               curr_batch,
+                                                                               d_loss,
+                                                                               g_loss[0],
+                                                                               elapsed_time))
 
     def load_model_predict_and_save(self):  # first image only
         self.load_model()
         data_input = utils.load_numpy_array(self.data_preper.saved_input_imgs_fname)
         data_output = utils.load_numpy_array(self.data_preper.saved_output_imgs_fname)
+
+        data_input = data_input[:2]
+        data_output = data_output[:2]
+
         data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
         data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
 
@@ -309,11 +303,11 @@ if __name__ == '__main__':
     #           sys.executable + " pix2pix.py --size 192 >result.txt" +
     #           "' &")
 
-    batch_size = 75
+    batch_size = 50
     print_summary = False
-    sample_interval_in_batches = 49
+    sample_interval_in_batches = 36
 
     gan = Pix2Pix(print_summary=print_summary)
-    gan.train(epochs=50, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
-    gan.save_model_and_progress_report()
+    gan.train(epochs=5, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
+    # gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()
