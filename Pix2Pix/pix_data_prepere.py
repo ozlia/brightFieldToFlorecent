@@ -23,8 +23,8 @@ class pix2pix_data_prepare():
 
         self.img_size = (6, 128, 128)  # (z,y,x)
         self.img_size_rev = (self.img_size[1], self.img_size[2], self.img_size[0])
-        self.saved_input_imgs_fname = 'input_images_after_data_prepare.npy'
-        self.saved_output_imgs_fname = 'output_images_after_data_prepare.npy'
+        self.saved_input_imgs_fname = 'input_images_after_data_prepare_norm.npy'
+        self.saved_output_imgs_fname = 'output_images_after_data_prepare_norm.npy'
 
         self.limit = 100
         # self.org_type = "Mitochondria/"
