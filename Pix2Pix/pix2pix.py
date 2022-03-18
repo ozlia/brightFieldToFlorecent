@@ -11,7 +11,7 @@ from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
     Activation,Flatten,Dense
 from tensorflow.keras.optimizers import Adam
-from Pix2Pix.custom_metrics import wasserstein_loss
+# from Pix2Pix.custom_metrics import wasserstein_loss
 
 import datetime
 import matplotlib.pyplot as plt
@@ -42,9 +42,9 @@ class Pix2Pix:
 
         # Number of filters in the first layer of G and D
         self.gf = 64
-        self.df = 16
+        self.df = 64
 
-        self.optimizer = Adam(0.00005)
+        self.optimizer = Adam(0.0002,0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -78,15 +78,14 @@ class Pix2Pix:
         if print_summary:
             self.print_summary()
 
-    def build_generator(self): #TODO change to regular unet, not working good enough
+    def build_generator(self):
         """U-Net Generator"""
 
         def conv2d(layer_input, filters, f_size=4, bn=True):
             """Layers used during downsampling"""
-            d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
+            d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same',activation='relu')(layer_input)
             if bn:
-                d = BatchNormalization(momentum=0.8)(d)
-            d = LeakyReLU(alpha=0.2)(d)
+                d = BatchNormalization(momentum=0.8)(d) #new epsilon addition
             return d
 
         def deconv2d(layer_input, skip_input, filters, f_size=4, dropout_rate=0):
@@ -96,8 +95,8 @@ class Pix2Pix:
             if dropout_rate:
                 u = Dropout(dropout_rate)(u)
             u = BatchNormalization(momentum=0.8)(u)
-            u = LeakyReLU(alpha=0.2)(u)
             u = Concatenate()([u, skip_input])
+            u = LeakyReLU(alpha=0.2)(u)
             return u
 
         # Image input
@@ -111,8 +110,8 @@ class Pix2Pix:
         d5 = conv2d(d4, self.gf * 16)
 
         # Upsampling
-        u2 = deconv2d(d5, d4, self.gf * 8)
-        u3 = deconv2d(u2, d3, self.gf * 4)
+        u2 = deconv2d(d5, d4, self.gf * 8,dropout_rate=0.1)
+        u3 = deconv2d(u2, d3, self.gf * 4,dropout_rate=0.2)
         u4 = deconv2d(u3, d2, self.gf * 2)
         u5 = deconv2d(u4, d1, self.gf)
 
@@ -130,7 +129,7 @@ class Pix2Pix:
             if dropout_rate > 0:
                 d = Dropout(dropout_rate)(d)
             if bn:
-                d = BatchNormalization(momentum=0.8)(d)
+                d = BatchNormalization(momentum=0.8,epsilon=0.01)(d)
             return d
 
         img_A = Input(shape=self.img_shape)
@@ -139,7 +138,7 @@ class Pix2Pix:
         # Concatenate image and conditioning image by channels to produce input
         combined_imgs = Concatenate(axis=-1)([img_A, img_B])
 
-        d1 = d_layer(combined_imgs, self.df)
+        d1 = d_layer(combined_imgs, self.df) #
         d2 = d_layer(d1, self.df * 2)
         d3 = d_layer(d2, self.df * 4)
         d4 = d_layer(d3, self.df * 8)
@@ -159,10 +158,10 @@ class Pix2Pix:
         valid = np.ones((batch_size_in_patches,1))
         fake = np.zeros((batch_size_in_patches,1))
         d_loss = (0, 0)
+        # batch_generator =
 
         for epoch in range(epochs):
-            for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
-                    self.data_preper.load_images_as_batches(batch_size=batch_size_in_patches)):
+            for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(self.data_preper.load_images_as_batches(batch_size=batch_size_in_patches)):
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
@@ -172,7 +171,11 @@ class Pix2Pix:
 
                 # Train the discriminators (original images = real / generated = Fake)
                 # leaning towards training generator better
-                if batch_i % 2 == 0: #supposed to give more time for the generator to train
+                if batch_i % 10 == 0: #supposed to give more time for the generator to train
+                    # disc_real_brightfield_batch, disc_real_fluorescent_batch = batch_generator.__next__()
+                    # batch_i += 1
+
+                    self.discriminator.trainable = True
                     d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                                     valid)
                     d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
@@ -184,6 +187,7 @@ class Pix2Pix:
                 # -----------------
 
                 # Train the generators
+                self.discriminator.trainable = False
                 g_loss = self.combined.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                       [valid, real_fluorescent_batch])
 
@@ -193,6 +197,10 @@ class Pix2Pix:
                 # If at save interval => save generated image samples
                 if ((batch_i + 1) % sample_interval_in_batches) == 0:
                     self.sample_images(epoch, batch_i + 1)
+
+                if d_loss < 0.001:
+                    raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
+
 
     def sample_images(self, epoch, batch_i):
 
@@ -304,11 +312,13 @@ if __name__ == '__main__':
     #           sys.executable + " pix2pix.py --size 192 >result.txt" +
     #           "' &")
 
-    batch_size = 10
-    print_summary = False
-    sample_interval_in_batches = 79
+    batch_size = 32
+    print_summary = True
+    sample_interval_in_batches = 53
 
     gan = Pix2Pix(print_summary=print_summary)
-    gan.train(epochs=20, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
-    # gan.save_model_and_progress_report()
+    try:
+        gan.train(epochs=100, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
+    finally:
+        gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()

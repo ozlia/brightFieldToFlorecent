@@ -27,8 +27,8 @@ class pix2pix_data_prepare():
         self.saved_output_imgs_fname = 'output_images_after_data_prepare_norm.npy'
 
         self.limit = 100
-        # self.org_type = "Mitochondria/"
-        self.org_type = "Nuclear-envelope/"
+        self.org_type = "Mitochondria/"
+        # self.org_type = "Nuclear-envelope/"
         self.images_paths = data_prepare.load_paths(self.org_type, limit=self.limit)
 
         # self.sample_range = np.arange(len(self.train_x))
