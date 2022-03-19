@@ -314,7 +314,7 @@ if __name__ == '__main__':
 
     gan = Pix2Pix(print_summary=print_summary)
     try:
-        gan.train(epochs=100, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
+        gan.train(epochs=5, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
     finally:
         gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()

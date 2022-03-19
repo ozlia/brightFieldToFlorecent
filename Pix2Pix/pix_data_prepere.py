@@ -7,9 +7,9 @@ import numpy as np
 import getpass
 from sklearn.model_selection import train_test_split
 
-USER = getpass.getuser().split("@")[0]
-DIRECTORY = "/home/%s/prediction3D" % USER
-os.makedirs(DIRECTORY, exist_ok=True)
+# USER = getpass.getuser().split("@")[0]
+# DIRECTORY = "/home/%s/prediction3D" % USER
+# os.makedirs(DIRECTORY, exist_ok=True)
 
 
 
@@ -26,8 +26,12 @@ class pix2pix_data_prepare():
         self.img_size_rev = (self.img_size[1], self.img_size[2], self.img_size[0])
         self.img_limit = 150
 
+        #prep paths for input images
+
         # self.org_type = "Nuclear-envelope/"
         self.org_type = "Mitochondria/"
+        self.data_root_path = os.path.join(utils.DIRECTORY,self.org_type)
+
         self.input_img_array_path = os.path.join(self.org_type, 'input_images_after_data_prepare_norm')
         self.output_img_array_path = os.path.join(self.org_type, 'output_images_after_data_prepare_norm')
 
@@ -50,14 +54,16 @@ class pix2pix_data_prepare():
         gc.collect()
 
     def load_images_from_memory(self):
-        if len(os.listdir(DIRECTORY)) == 0:
+        os.makedirs(self.data_root_path, exist_ok=True)
+        arrays_in_memory = len(os.listdir(os.path.join(utils.DIRECTORY,self.org_type))) > 0
+        if arrays_in_memory:
+            data_input = utils.load_numpy_array(self.input_img_array_path + '.npy')
+            data_output = utils.load_numpy_array(self.output_img_array_path + '.npy')
+        else:
             images_paths = data_prepare.load_paths(self.org_type, limit=self.img_limit)
             data_input, data_output = data_prepare.separate_data(images_paths, self.img_size)
             utils.save_numpy_array(data_input, self.input_img_array_path)
             utils.save_numpy_array(data_output, self.output_img_array_path)
-        else:
-            data_input = utils.load_numpy_array(self.input_img_array_path + '.npy')
-            data_output = utils.load_numpy_array(self.output_img_array_path + '.npy')
 
         return data_input,data_output
 
