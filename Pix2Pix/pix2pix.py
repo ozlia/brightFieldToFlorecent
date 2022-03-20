@@ -23,11 +23,11 @@ from Pix2Pix.pix_data_prepere import pix2pix_data_prepare
 
 
 class Pix2Pix:
-    def __init__(self, batch_size=-1, print_summary=False, single_output=True):
+    def __init__(self, batch_size=-1, print_summary=False, utilize_patchGAN=True):
         self.root_dir = '/home/tomrob/pix2pix'
         os.makedirs(self.root_dir, exist_ok=True)
         self.progress_report = {k: [] for k in ['Epoch', 'Batch', 'G Loss', 'D Loss']}
-        self.is_single_output = single_output
+        self.utilize_patchGAN = utilize_patchGAN
 
         # Input shape
         self.data_preper = pix2pix_data_prepare()
@@ -36,7 +36,7 @@ class Pix2Pix:
         self.img_cols = self.img_shape[1]
         self.channels = self.img_shape[2]
 
-        if self.is_single_output:
+        if self.utilize_patchGAN:
             disc_loss = 'binary_crossentropy'
         else:
             # Calculate patch size of D (PatchGAN)
@@ -49,8 +49,14 @@ class Pix2Pix:
         self.gf = 64
         self.df = 64
 
-        self.d_optimizer = Adam(0.0002,0.5)
-        self.g_optimizer = Adam(0.0002,0.5)
+        self.build_model(disc_loss)
+
+        if print_summary:
+            self.print_summary()
+
+    def build_model(self,disc_loss):
+        self.d_optimizer = Adam(0.0002, 0.5)
+        self.g_optimizer = Adam(0.0002, 0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -78,9 +84,7 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=[disc_loss, 'mae'], loss_weights=[1, 100],optimizer=self.g_optimizer)
-        if print_summary:
-            self.print_summary()
+        self.combined.compile(loss=[disc_loss, 'mae'], loss_weights=[1, 100], optimizer=self.g_optimizer)
 
     def build_generator(self):
         """U-Net Generator"""
@@ -142,12 +146,12 @@ class Pix2Pix:
         # Concatenate image and conditioning image by channels to produce input
         combined_imgs = Concatenate(axis=-1)([img_A, img_B])
 
-        d1 = d_layer(combined_imgs, self.df)  #
+        d1 = d_layer(combined_imgs, self.df)
         d2 = d_layer(d1, self.df * 2)
         d3 = d_layer(d2, self.df * 4)
         d4 = d_layer(d3, self.df * 8)
 
-        if self.is_single_output:
+        if self.utilize_patchGAN:
             validity = Flatten()(d4)
             validity = Dense(1)(validity)
             validity = Activation('sigmoid')(validity)
@@ -156,11 +160,12 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, batch_size_in_patches=50, sample_interval_in_batches=50):
+    def train(self, epochs, batch_size_in_patches=50, sample_interval_in_batches=50,
+              report_sample_interval_in_batches=1):
         start_time = datetime.datetime.now()
 
         # Adversarial loss ground truths
-        if self.is_single_output:
+        if self.utilize_patchGAN:
             patch_arr_size = (batch_size_in_patches, 1)
         else:
             patch_arr_size = (batch_size_in_patches,) + self.disc_patch
@@ -185,7 +190,6 @@ class Pix2Pix:
                     # disc_real_brightfield_batch, disc_real_fluorescent_batch = batch_generator.__next__()
                     # batch_i += 1
 
-                    self.discriminator.trainable = True
                     d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                                     valid)
                     d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
@@ -197,12 +201,12 @@ class Pix2Pix:
                 # -----------------
 
                 # Train the generators
-                self.discriminator.trainable = False
                 g_loss = self.combined.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                       [valid, real_fluorescent_batch])
 
                 self.document_progress(curr_epoch=epoch + 1, total_epochs=epochs, curr_batch=batch_i, d_loss=d_loss,
-                                       g_loss=g_loss, start_time=start_time)
+                                       g_loss=g_loss, start_time=start_time,
+                                       sample_interval=report_sample_interval_in_batches)
 
                 # If at save interval => save generated image samples
                 if ((batch_i + 1) % sample_interval_in_batches) == 0:
@@ -266,11 +270,12 @@ class Pix2Pix:
         # except:
         # raise FileNotFoundError(f'Could not load models from path: {target_path}')
 
-    def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time):
+    def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time, sample_interval):
         elapsed_time = datetime.datetime.now() - start_time
 
-        for k, v in zip(self.progress_report.keys(), [curr_epoch, curr_batch, g_loss[0], d_loss]):
-            self.progress_report[k].append(v)
+        if curr_batch % sample_interval == 0:
+            for k, v in zip(self.progress_report.keys(), [curr_epoch, curr_batch, g_loss[0], d_loss]):
+                self.progress_report[k].append(v)
 
         print("[Epoch %d/%d] [Batch %d] [D loss: %f] [G loss: %f] time: %s" % (curr_epoch, total_epochs,
                                                                                curr_batch,
@@ -319,10 +324,12 @@ if __name__ == '__main__':
 
     batch_size = 32
     print_summary = True
-    sample_interval_in_batches = 53
+    img_sample_interval_in_batches = 53
+    report_sample_interval_in_batches = 32
     utilize_patchGAN = True
 
-    gan = Pix2Pix(print_summary=print_summary, single_output=utilize_patchGAN)
-    gan.train(epochs=100, batch_size_in_patches=batch_size, sample_interval_in_batches=sample_interval_in_batches)
+    gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN)
+    gan.train(epochs=100, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
+              report_sample_interval_in_batches=report_sample_interval_in_batches)
     gan.save_model_and_progress_report()
     # gan.load_model_predict_and_save()
