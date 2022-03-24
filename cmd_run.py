@@ -1,5 +1,5 @@
 import pandas as pd
-# import run
+# import utils
 from pandas import DataFrame
 
 METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
@@ -21,12 +21,24 @@ def print_full(df: DataFrame):
 
 
 def cmd_script():
-    print("please select organelle name")
-    matadata_df = pd.read_csv(METADATA_CSV_PATH)
-    all_org = set(matadata_df['StructureDisplayName'])
-    print(all_org)
-    org = input()
-    print(org)
+    load = None
+    while load not in ["y", "Y", "n", "N"]:
+        print("Do you need to load new images? [y/n]")
+        load = input()
+    if load in ["y", "Y"]:
+        print("Please select organelle name for this list:")
+        print("---------------")
+        matadata_df = pd.read_csv(METADATA_CSV_PATH)
+        all_org = list(set(matadata_df['StructureDisplayName']))
+        all_org.remove("None")
+        for i in range(0, len(all_org), 3):
+            print(', '.join(all_org[i:i + 3]))
+        print("---------------")
+        org = input()
+        while org not in all_org:
+            print("please enter valid name from the list above:")
+            org = input()
+    print(" how many e")
 
     # print_full(matadata_df)
     # print_full((matadata_df.head()))
@@ -36,3 +48,4 @@ def cmd_script():
 
 if __name__ == '__main__':
     cmd_script()
+    # run.run()

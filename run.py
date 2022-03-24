@@ -6,15 +6,18 @@ from BasicAE.autoEncoder import AutoEncoder
 from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import backend as KB
+import pandas as pd
+from pandas import DataFrame
+
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
 
-
+METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
 img_size = (6, 64, 64)    # (x,y,z)
-batch_size = 32
-epochs = 1000
-org_type = "Mitochondria/"  # change the organelle name
+# batch_size = 32
+# epochs = 1000
+# org_type = "Mitochondria/"  # change the organelle name
 
-def run(epochs, batch_size, read_img = False, org_type = None, img_read_limit = 150 ):
+def run(epochs, batch_size, dir, read_img = False, org_type = None, img_read_limit = 150 ):
     img_size_rev = (img_size[1], img_size[2], img_size[0])
     start = datetime.now()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
@@ -49,8 +52,8 @@ def run(epochs, batch_size, read_img = False, org_type = None, img_read_limit = 
     # for i in range(split_to):
     #     model.train(split_x[i], split_y[i], val_set=0.1, model_dir="/AutoEncoder3D_64px/")
 
-    model.train(train_x[: int(len(train_x)/2)], train_y[: int(len(train_y)/2)], val_set=0.1, model_dir="AutoEncoder3D_64px")
-    model.train(train_x[int(len(train_x)/2):], train_y[int(len(train_y)/2):], val_set=0.1, model_dir="AutoEncoder3D_64px")
+    model.train(train_x[: int(len(train_x)/2)], train_y[: int(len(train_y)/2)], val_set=0.1, model_dir=dir)
+    model.train(train_x[int(len(train_x)/2):], train_y[int(len(train_y)/2):], val_set=0.1, model_dir=dir)
     stop = datetime.now()
     print('Done Train, Time: ', stop - start)
 
@@ -70,5 +73,54 @@ def run(epochs, batch_size, read_img = False, org_type = None, img_read_limit = 
     stop = datetime.now()
     print('Done All, Time: ', stop - start)
 
+
+# interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
+
+def print_full(df: DataFrame):
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 2000)
+    pd.set_option('display.float_format', '{:20,.2f}'.format)
+    pd.set_option('display.max_colwidth', None)
+    print(df)
+    pd.reset_option('display.max_rows')
+    pd.reset_option('display.max_columns')
+    pd.reset_option('display.width')
+    pd.reset_option('display.float_format')
+    pd.reset_option('display.max_colwidth')
+
+
+def cmd_script():
+    load = None
+    org = None
+    while load not in ["y", "Y", "n", "N"]:
+        print("Do you need to load new images? [y/n]")
+        load = input()
+    if load in ["y", "Y"]:
+        print("Please select organelle name for this list:")
+        print("---------------")
+        matadata_df = pd.read_csv(METADATA_CSV_PATH)
+        all_org = list(set(matadata_df['StructureDisplayName']))
+        all_org.remove("None")
+        for i in range(0, len(all_org), 3):
+            print(', '.join(all_org[i:i + 3]))
+        print("---------------")
+        org = input()
+        while org not in all_org:
+            print("please enter valid name from the list above:")
+            org = input()
+    print("how many epochs?")
+    epochs = int(input())
+    print("what is the batch size?")
+    batch_size = int(input())
+    read_img = True if load in ["y", "Y"] else False
+
+    run(epochs= epochs, batch_size= batch_size, dir=utils.DIR_NAME_INPUT, read_img=read_img, org_type=org, img_read_limit=150)
+
+    # print_full(matadata_df)
+    # print_full((matadata_df.head()))
+    # ['StructureDisplayName']
+    # ['ChannelNumberBrightfield']
+
 if __name__ == '__main__':
-    run(epochs= epochs, batch_size= batch_size, read_img=False, org_type=None, img_read_limit=150)
+    cmd_script()

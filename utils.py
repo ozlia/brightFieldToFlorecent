@@ -11,7 +11,9 @@ import imageio
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
-DIRECTORY = "/home/%s/prediction3D_64px" % USER
+print("enter select directory name for this run: ")
+DIR_NAME_INPUT = input()
+DIRECTORY = "/home/%s/%s" % (USER, DIR_NAME_INPUT)
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
 
