@@ -1,12 +1,5 @@
 from __future__ import print_function, division
-
-import sys
-from tensorflow.keras.utils import plot_model
-from patchify import unpatchify
-
 import utils
-
-from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
     Activation, Flatten, Dense
@@ -37,13 +30,13 @@ class Pix2Pix:
         self.channels = self.img_shape[2]
 
         if self.utilize_patchGAN:
-            disc_loss = 'binary_crossentropy'
-        else:
             # Calculate patch size of D (PatchGAN)
             patchGAN_patch_size = 2 ** 4
             patch = int(self.img_shape[1] / patchGAN_patch_size)
             self.disc_patch = (patch, patch, 1)
             disc_loss = 'mse'
+        else:
+            disc_loss = 'binary_crossentropy'
 
         # Number of filters in the first layer of G and D
         self.gf = 64
@@ -151,24 +144,24 @@ class Pix2Pix:
         d3 = d_layer(d2, self.df * 4)
         d4 = d_layer(d3, self.df * 8)
 
-        if self.utilize_patchGAN:
+        if self.utilize_patchGAN: # filter output
+            validity = Conv2D(1, kernel_size=4, strides=1, padding='same', activation='sigmoid')(d4)
+        else:
             validity = Flatten()(d4)
             validity = Dense(1)(validity)
             validity = Activation('sigmoid')(validity)
-        else:  # filter output
-            validity = Conv2D(1, kernel_size=4, strides=1, padding='same', activation='sigmoid')(d4)
 
         return Model([img_A, img_B], validity)
 
     def train(self, epochs, batch_size_in_patches=50, sample_interval_in_batches=50,
-              report_sample_interval_in_batches=1):
+              report_sample_interval_in_batches=1,shuffle_batches=False):
         start_time = datetime.datetime.now()
 
         # Adversarial loss ground truths
         if self.utilize_patchGAN:
-            patch_arr_size = (batch_size_in_patches, 1)
-        else:
             patch_arr_size = (batch_size_in_patches,) + self.disc_patch
+        else:
+            patch_arr_size = (batch_size_in_patches, 1)
 
         valid = np.ones(patch_arr_size)
         fake = np.zeros(patch_arr_size)
@@ -177,7 +170,7 @@ class Pix2Pix:
 
         for epoch in range(epochs):
             for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
-                    self.data_handler.load_images_as_batches(batch_size=batch_size_in_patches)):
+                    self.data_handler.load_images_as_batches(batch_size=batch_size_in_patches,shuffle=shuffle_batches)):
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
@@ -189,7 +182,7 @@ class Pix2Pix:
                 if batch_i % 10 == 0:  # leaning towards training generator better
                     # disc_real_brightfield_batch, disc_real_fluorescent_batch = batch_generator.__next__()
                     # batch_i += 1
-
+                    self.discriminator.trainable = True
                     d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                                     valid)
                     d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
@@ -201,6 +194,7 @@ class Pix2Pix:
                 # -----------------
 
                 # Train the generators
+                self.discriminator.trainable = False
                 g_loss = self.combined.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                       [valid, real_fluorescent_batch])
 
@@ -273,7 +267,7 @@ class Pix2Pix:
 
             brightfield = np.expand_dims(self.data_handler.X_test[i], axis=0)  # for patchify process
             real_fluorescent = self.data_handler.y_test[i]
-            gen_fluorescent = utils.patchify_predict_img(self.generator, brightfield, self.data_handler.img_size_rev)
+            gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield, self.data_handler.img_size_rev)
 
             # TODO might need to narrow down to only channel 2 of fluorescent
             eval_metrics['peak_snr'].append(
@@ -285,8 +279,6 @@ class Pix2Pix:
             utils.save_full_2d_pic(real_fluorescent[:, :, 2],
                                    os.path.join(curr_imgs_output_dir, 'real_fluorescent.png'))
             utils.save_full_2d_pic(brightfield[0][:, :, 2], os.path.join(curr_imgs_output_dir, 'brightfield.png'))
-
-            break
 
         fname = f"eval_{self.data_handler.org_type}.csv"
         pd.DataFrame.from_dict(data=eval_metrics).to_csv(os.path.join(root_dir, fname), index=False)
@@ -315,9 +307,10 @@ if __name__ == '__main__':
     print_summary = False
     utilize_patchGAN = False
     nImages_to_sample = 3
+    shuffle_batches = True
 
     gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN, nImages_to_sample=nImages_to_sample)
-    gan.train(epochs=1, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
-              report_sample_interval_in_batches=report_sample_interval_in_batches)
+    gan.train(epochs=100, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
+              report_sample_interval_in_batches=report_sample_interval_in_batches,shuffle_batches=shuffle_batches)
     gan.predict_and_save()
     gan.save_model_and_progress_report()

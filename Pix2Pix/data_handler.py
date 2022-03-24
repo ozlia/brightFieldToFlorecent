@@ -5,6 +5,7 @@ import utils
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+
 class data_handler():
     def __init__(self):
         self.brightfield_patches = None
@@ -18,7 +19,7 @@ class data_handler():
         self.img_size_rev = (self.img_size[1], self.img_size[2], self.img_size[0])
         self.img_limit = 150
 
-        #prep paths for input images
+        # prep paths for input images
 
         # self.org_type = "Nuclear-envelope/"
         self.org_type = "Mitochondria"
@@ -35,7 +36,8 @@ class data_handler():
                                                 random_state=3,
                                                 shuffle=True)
 
-        self.X_train, self.X_test, self.y_train, self.y_test = [utils.transform_dimensions(arr, [0, 2, 3, 1]) for arr in train_test_split_tup]
+        self.X_train, self.X_test, self.y_train, self.y_test = [utils.transform_dimensions(arr, [0, 2, 3, 1]) for arr in
+                                                                train_test_split_tup]
         self.X_train = utils.utils_patchify(self.X_train, self.img_size_rev, resize=True, over_lap_steps=1)
         self.y_train = utils.utils_patchify(self.y_train, self.img_size_rev, resize=True, over_lap_steps=1)
 
@@ -43,7 +45,7 @@ class data_handler():
         gc.collect()
 
     def load_images_from_memory(self):
-        arrays_in_memory = len(os.listdir(os.path.join(utils.DIRECTORY,self.org_type))) > 0
+        arrays_in_memory = len(os.listdir(os.path.join(utils.DIRECTORY, self.org_type))) > 0
         if arrays_in_memory:
             brightfield_imgs = utils.load_numpy_array(self.input_img_array_path + '.npy')
             fluorescent_imgs = utils.load_numpy_array(self.output_img_array_path + '.npy')
@@ -53,20 +55,24 @@ class data_handler():
             utils.save_numpy_array(brightfield_imgs, self.input_img_array_path)
             utils.save_numpy_array(fluorescent_imgs, self.output_img_array_path)
 
-        return brightfield_imgs,fluorescent_imgs
+        return brightfield_imgs, fluorescent_imgs
 
+    def load_images_as_batches(self, batch_size=16, sample_size=-1, shuffle=False):
+        if shuffle:
+            curr_idx_array = np.arange(start=0, stop=len(self.X_train), step=1)
 
-    def load_images_as_batches(self, batch_size=16, sample_size=-1):
         if sample_size > 0:  # meant for saving an output
             batch_size = sample_size
             n_batches = 1
         else:
-            n_batches = int(len(self.X_train) / batch_size)  # TODO problem if doesn't divide evenly and no shuffle
-        # TODO should I shuffle?
-        for i in range(n_batches):  # Sample n_batches * batch_size so that model sees all
-            # sampled_indexes = np.random.choice(self.sample_range, batch_size, replace=False)
-            sampled_indexes = np.arange(start=i * batch_size, stop=((i + 1) * batch_size))
+            n_batches = int(len(self.X_train) / batch_size)
+
+        for i in range(n_batches):
+            if shuffle:  # can also do "lazy shuffle" that just picks from train_X without taking care of coverage
+                sampled_indexes = np.random.choice(curr_idx_array, batch_size, replace=False)
+                np.delete(curr_idx_array, sampled_indexes)
+            else:
+                sampled_indexes = np.arange(start=i * batch_size, stop=((i + 1) * batch_size))
             brightfield_patches_samples = self.X_train[sampled_indexes]
             fluorescent_patches_samples = self.y_train[sampled_indexes]
             yield brightfield_patches_samples, fluorescent_patches_samples
-
