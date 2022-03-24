@@ -1,5 +1,6 @@
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, Dropout, concatenate, MaxPooling2D, Input
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, Dropout, concatenate, MaxPooling2D, Input, MaxPool2D
 from tensorflow.keras.callbacks import CSVLogger
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model, models, callbacks
 from patchify import unpatchify
 from datetime import datetime
@@ -8,61 +9,38 @@ from ICNN import ICNN
 import getpass
 import os
 
-
-class Unet:
+class Unet(ICNN):
 
     def __init__(self, input_dim=(128, 128, 6), batch_size=32, epochs=1000):
         inputs = Input(shape=input_dim)
 
-        # encoder
-        c1 = Conv2D(16, (3, 3,), activation='relu', padding='same')(inputs)
-        c1 = Dropout(0.1)(c1)
-        c1 = Conv2D(16, (3, 3), activation='relu', padding='same')(c1)
-        c2 = MaxPooling2D((2, 2))(c1)
+        # encoder: contracting path - downsample
+        # 1 - downsample
+        f1, p1 = Unet.downsample_block(inputs, 16)
+        # 2 - downsample
+        f2, p2 = Unet.downsample_block(p1, 32)
+        # 3 - downsample
+        f3, p3 = Unet.downsample_block(p2, 64)
+        # 4 - downsample
+        f4, p4 = Unet.downsample_block(p3, 128)
+        # 5 - bottleneck
+        bottleneck = Unet.double_conv_block(p4, 256)
+        # decoder: expanding path - upsample
+        # 6 - upsample
+        u6 = Unet.upsample_block(bottleneck, f4, 128)
+        # 7 - upsample
+        u7 = Unet.upsample_block(u6, f3, 64)
+        # 8 - upsample
+        u8 = Unet.upsample_block(u7, f2, 32)
+        # 9 - upsample
+        u9 = Unet.upsample_block(u8, f1, 16)
+        # outputs
+        outputs = Conv2D(input_dim[2], (1, 1), activation='sigmoid', name='decoder_output')(u9)
+        # unet model with Keras Functional API
+        model = Model(inputs, outputs, name="U-Net")
 
-        c2 = Conv2D(32, (3, 3), activation='relu', padding='same')(c2)
-        c2 = Dropout(0.1)(c2)
-        c2 = Conv2D(32, (3, 3), activation='relu', padding='same')(c2)
-        c3 = MaxPooling2D((2, 2))(c2)
-
-        c3 = Conv2D(64, (3, 3), activation='relu', padding='same')(c3)
-        c3 = Dropout(0.1)(c3)
-        c3 = Conv2D(64, (3, 3), activation='relu', padding='same')(c3)
-        c4 = MaxPooling2D((2, 2))(c3)
-
-        c4 = Conv2D(128, (3, 3), activation='relu', padding='same')(c4)
-        c4 = Dropout(0.1)(c4)
-        c4 = Conv2D(128, (3, 3), activation='relu', padding='same')(c4)
-        c5 = MaxPooling2D((2, 2))(c4)
-
-        # embedding
-        c5 = Conv2D(256, (3, 3), activation='relu', padding='same')(c5)
-        c5 = Dropout(0.1)(c5)
-        u6 = Conv2DTranspose(256, (3, 3), strides=2, activation='relu', padding='same')(c5)
-
-        # decoder
-        u6 = concatenate([u6, c4])
-        c6 = Conv2DTranspose(128, (3, 3), activation='relu', padding='same')(u6)
-        c6 = Dropout(0.2)(c6)
-        u7 = Conv2DTranspose(128, (3, 3), strides=2, activation='relu', padding='same')(c6)
-
-        u7 = concatenate([u7, c3])
-        c7 = Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(u7)
-        c7 = Dropout(0.2)(c7)
-        u8 = Conv2DTranspose(64, (3, 3), strides=2, activation='relu', padding='same')(c7)
-
-        u8 = concatenate([u8, c2])
-        c8 = Conv2DTranspose(32, (3, 3), activation='relu', padding='same')(u8)
-        c8 = Dropout(0.2)(c8)
-        u9 = Conv2DTranspose(32, (3, 3), strides=2, activation='relu', padding='same')(c8)
-
-        u9 = concatenate([u9, c1])
-        c9 = Conv2DTranspose(16, (3, 3), activation='relu', padding='same')(u9)
-        c9 = Conv2DTranspose(16, (3, 3), activation='relu', padding='same')(c9)
-        outputs = Conv2D(input_dim[2], (3, 3), activation='sigmoid', padding='same', name='decoder_output')(c9)
-
-        model = Model(inputs, outputs)
-        model.compile(optimizer="adam", loss='mse')
+        opt = Adam()
+        model.compile(optimizer=opt, loss='mse')
         self.model = model
         self.input_dim = input_dim
         self.batch_size = batch_size
@@ -71,7 +49,7 @@ class Unet:
         self.USER = getpass.getuser().split("@")[0]
         print(self.USER)
 
-        self.dir = "/home/%s/%s" % (self.USER, "basicAE")
+        self.dir = "/home/%s/%s" % (self.USER, "Unet")
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
@@ -86,7 +64,7 @@ class Unet:
         model = self.model
         model.summary()
         callback = [
-            callbacks.ModelCheckpoint("%sBasicAEModel3D.h5" % model_dir, save_best_only=True),
+            callbacks.ModelCheckpoint("%sUnetModel3D.h5" % model_dir, save_best_only=True),
             CSVLogger('%slog_%s.csv' % (model_dir, save_time), append=True, separator=';')
         ]
         model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
@@ -124,3 +102,30 @@ class Unet:
         """
         path = self.dir + model_dir
         self.model = models.load_model(path)
+
+    @staticmethod
+    def double_conv_block(x, n_filters):
+        # Conv2D then ReLU activation
+        x = Conv2D(n_filters, 3, padding="same", activation=LeakyReLU())(x)
+        # Conv2D then ReLU activation
+        x = Conv2D(n_filters, 3, padding="same", activation=LeakyReLU())(x)
+        return x
+
+    @staticmethod
+    def downsample_block(x, n_filters):
+        f = Unet.double_conv_block(x, n_filters)
+        p = MaxPool2D(2)(f)
+        # p = Dropout(0.3)(p)
+        return f, p
+
+    @staticmethod
+    def upsample_block(x, conv_features, n_filters):
+        # upsample
+        x = Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
+        # concatenate
+        x = concatenate([x, conv_features])
+        # dropout
+        # x = Dropout(0.3)(x)
+        # Conv2D twice with ReLU activation
+        x = Unet.double_conv_block(x, n_filters)
+        return x
