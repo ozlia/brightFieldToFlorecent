@@ -15,39 +15,23 @@ class AutoEncoder(ICNN):
         stride = 2
         inputs = keras.Input(shape=input_dim)
 
-        # [First half of the network: downSampling inputs]
-        # x = layers.Conv2D(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(inputs)
-        # x = layers.MaxPooling2D((2, 2), padding="same")(x)
-        # x = layers.Conv2D(8, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
-        # x = layers.MaxPooling2D((2, 2), padding="same")(x)
-        # x = layers.Conv2D(8, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
-        # x = layers.MaxPooling2D((2, 2), padding="same")(x)
-        # x = layers.Conv2D(8, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
-        #
-        # # [second half of the net work upSampling]
-        # x = layers.UpSampling2D(2)(x)
-        # x = layers.Conv2DTranspose(8, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
-        # x = layers.UpSampling2D((2, 2))(x)
-        # x = layers.Conv2DTranspose(32, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same")(x)
-        # x = layers.UpSampling2D((2, 2))(x)
-        # outputs = layers.Conv2D(input_dim[2], (1, 1), activation="sigmoid", padding="same")(x)
 
         # encoder
-        x = Conv2D(32, (2, 2), strides=stride, activation="relu", padding="same")(inputs)
-        x = Conv2D(64, (2, 2), strides=stride, activation="relu", padding="same")(x)
-        x = Conv2D(128, (2, 2), strides=stride, activation="relu", padding="same")(x)
+        x = Conv2D(32, (2, 2), strides=stride, activation=LeakyReLU(), padding="same")(inputs)
+        x = Conv2D(64, (2, 2), strides=stride, activation=LeakyReLU(), padding="same")(x)
+        x = Conv2D(128, (2, 2), strides=stride, activation=LeakyReLU(), padding="same")(x)
 
         # decoder
-        x = (Conv2DTranspose(128, (3, 3), strides=stride, padding="same"))(x)
+        x = (Conv2DTranspose(128, (2, 2), strides=stride, padding="same"))(x)
         x = LeakyReLU()(x)
-        x = (Conv2DTranspose(64, (3, 3), strides=stride, padding="same"))(x)
+        x = (Conv2DTranspose(64, (2, 2), strides=stride, padding="same"))(x)
         x = LeakyReLU()(x)
-        x = (Conv2DTranspose(32, (3, 3), strides=stride, padding="same"))(x)
+        x = (Conv2DTranspose(32, (2, 2), strides=stride, padding="same"))(x)
         x = LeakyReLU()(x)
-        outputs = Conv2DTranspose(input_dim[2], (3, 3), activation='sigmoid', padding='same', name='decoder_output')(x)
+        outputs = Conv2DTranspose(input_dim[2], (2, 2), activation='sigmoid', padding='same', name='decoder_output')(x)
 
         model = keras.Model(inputs, outputs)
-        model.compile(optimizer="adam", loss='mse')
+        model.compile(optimizer="adam", loss='mae')
         self.model = model
         self.input_dim = input_dim
         self.batch_size = batch_size
@@ -56,27 +40,26 @@ class AutoEncoder(ICNN):
         self.USER = getpass.getuser().split("@")[0]
         print(self.USER)
 
-        self.dir = "/home/%s/%s" % (self.USER, "basicAE")
+        self.dir = utils.DIRECTORY
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
     def train(self, train_x, train_label, val_set=0.0, model_dir="model3D_full"):
         save_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
         model_dir = "%s/%s_%s/" % (self.dir, model_dir, save_time)
-        # train_x = utils.transform_dimensions(train_x, [0, 2, 3, 1])
-        # train_label = utils.transform_dimensions(train_label, [0, 2, 3, 1])
-        # model_dir = self.dir + model_dir
+
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
         model = self.model
         model.summary()
         callbacks = [
             keras.callbacks.ModelCheckpoint("%sBasicAEModel3D.h5" % model_dir, save_best_only=True),
-            CSVLogger('%slog_%s.csv' % (model_dir, save_time), append=True, separator=';')
+            CSVLogger('%slog_%s.csv' % (model_dir, save_time), append=True, separator=',')
         ]
         model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
                   validation_split=val_set,
                   callbacks=callbacks)
+
         model.save(model_dir)
 
     def predict_patches(self, test_data_input):

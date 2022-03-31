@@ -11,12 +11,15 @@ import imageio
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
-print("enter select directory name for this run: ")
-DIR_NAME_INPUT = input()
-DIRECTORY = "/home/%s/%s" % (USER, DIR_NAME_INPUT)
-if not os.path.exists(DIRECTORY):
-    os.makedirs(DIRECTORY)
+# print("enter select directory name for this run: ")
+DIRECTORY = "/home/%s" % USER
 
+
+def set_dir(name):
+    global DIRECTORY
+    DIRECTORY = "%s/%s" % (DIRECTORY, name)
+    if not os.path.exists(DIRECTORY):
+        os.makedirs(DIRECTORY)
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY
