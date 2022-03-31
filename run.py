@@ -19,7 +19,7 @@ img_size = (6, 64, 64)    # (x,y,z)
 # epochs = 1000
 # org_type = "Mitochondria/"  # change the organelle name
 
-def run(dir, epochs=1000, batch_size=32 , read_img = False, org_type = None, img_read_limit = 150 ):
+def run(dir, epochs=1000, batch_size=32 , read_img = False, org_type = None, img_read_limit = 150, model='Unet'):
 
     utils.set_dir(dir)
     img_size_rev = (img_size[1], img_size[2], img_size[0])
@@ -73,9 +73,9 @@ def run(dir, epochs=1000, batch_size=32 , read_img = False, org_type = None, img
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
     predicted_img = model.predict([data_input[0]])
     print("Saving .........")
-    utils.save_np_as_tiff(predicted_img, save_time, "predict")
-    utils.save_np_as_tiff(data_input[0], save_time, "input")
-    utils.save_np_as_tiff(data_output[0], save_time, "ground_truth")
+    utils.save_np_as_tiff(predicted_img, save_time, "predict", model)
+    utils.save_np_as_tiff(data_input[0], save_time, "input", model)
+    utils.save_np_as_tiff(data_output[0], save_time, "ground_truth", model)
     # utils.save_full_2d_pic(predicted_img[:, :, 2], 'predicted_output_32px.png')
     # utils.save_full_2d_pic(data_input[0][:, :, 2], 'input.png')
     # utils.save_full_2d_pic(data_output[0][:, :, 2], 'ground_truth.png')
