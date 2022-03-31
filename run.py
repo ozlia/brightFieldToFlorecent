@@ -136,23 +136,28 @@ def cmd_helper_script():
 
 def organelle_list():
     matadata_df = pd.read_csv(METADATA_CSV_PATH)
-    all_org = list(set(matadata_df['StructureDisplayName']))
+    all_org = list(set(pd.read_csv(METADATA_CSV_PATH)['StructureDisplayName'])).remove("None")
     all_org.remove("None")
     for i in range(0, len(all_org), 3):
         print(', '.join(all_org[i:i + 3]))
 
 def parse_command_line():
     parser = ArgumentParser(description="Getting arguments to run model")
-    parser.add_argument("-model_type", nargs=1, help="Model to run")
-    parser.add_argument("-dir", default=["run_%s" % datetime.now().strftime("%d-%m-%Y_%H-%M")], nargs='+', help="Directory name to save")
-    parser.add_argument("-epochs", nargs=1, default=1000, type=int, help="Number of epochs")
-    parser.add_argument("-batch_size", nargs=1, default=32, type=int, help='Batch size')
-    parser.add_argument("-read_img", action='store_true', default=False, help='Boolean value to read new image or use stored')
-    parser.add_argument("-org_type", nargs=1, default=None, help='Name of Organelle from list')
-    parser.add_argument("-read_limit", default=150, type=int, help='Maximum number of images to read')
-    return parser.parse_args()
+    # parser.add_argument("-m", "--model_type", matavar="", nargs=1, required=True, help="Model to run")
+    parser.add_argument("-d", "--dir", default=["run_%s" % datetime.now().strftime("%d-%m-%Y_%H-%M")],
+                        nargs=1, help="Directory name to save")
+    parser.add_argument("-e", "--epochs", nargs=1, default=1000, type=int, help="Number of epochs")
+    parser.add_argument("-bz", "--batch_size" , nargs=1, default=32, type=int, help='Batch size')
+    parser.add_argument("-ri", "--read_img", action='store_true', default=False, help='Use this flag to read new image')
+    parser.add_argument("-o", "--org_type", nargs=1, default=None, type=str,
+                        help='Name of Organelle from list: %s' % ', '.join(sorted(set(pd.read_csv(METADATA_CSV_PATH)['StructureDisplayName']))) )
+    parser.add_argument("-rl", "--read_limit", default=150, type=int, help='Maximum number of images to read')
+    args = parser.parse_args()
+    run(epochs=args.epochs, batch_size=args.batch_size, dir=args.dir, read_img=args.read_img, org_type=args.org_type,
+        img_read_limit=args.read_limit)
 
 if __name__ == '__main__':
     # run(epochs=1000, batch_size=32, dir="BasicAE_64x_2*2", read_img=True, org_type="Mitochondria",
     #     img_read_limit=150)
-    run(dir="BasicAE_64x_2*2")
+    # run(dir="BasicAE_64x_2*2")
+    parse_command_line()
