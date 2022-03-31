@@ -1,3 +1,4 @@
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -59,7 +60,8 @@ def evaluate(test_data_input, test_data_output, metrics):
 def norm_img(img):
     # return img / img.max()
     for i in range(img.shape[0]):
-        img[i] = (img[i] - np.min(img[i])) / (np.max(img[i]) - np.min(img[i]))
+        norm = cv2.normalize(img[i], None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        img[i] = (norm/255).astype(np.float16)
     return img
 
 
@@ -68,8 +70,8 @@ def save_full_2d_pic(img, name):
     plt.imsave(DIRECTORY + '/' + name, np.squeeze(img), cmap=plt.cm.gray)
 
 
-def save_np_as_tiff(img, time, name):
-    date_dir = DIRECTORY + '/' + time
+def save_np_as_tiff(img, time, name, model):
+    date_dir = DIRECTORY + '/' + model + '/' + time
     if not os.path.exists(date_dir):
         os.makedirs(date_dir)
     for i in range(img.shape[2]):
