@@ -8,32 +8,36 @@ import utils
 from ICNN import ICNN
 import getpass
 import os
+from smooth_tiled_predictions import predict_img_with_smooth_windowing
 
 class Unet(ICNN):
 
     def __init__(self, input_dim=(128, 128, 6), batch_size=32, epochs=1000):
         inputs = Input(shape=input_dim)
 
+        self._filter_size = (3, 3)
+        self._stride = (2, 2)
+
         # encoder: contracting path - downsample
         # 1 - downsample
-        f1, p1 = Unet.downsample_block(inputs, 16)
+        f1, p1 = self.downsample_block(inputs, 16)
         # 2 - downsample
-        f2, p2 = Unet.downsample_block(p1, 32)
+        f2, p2 = self.downsample_block(p1, 32)
         # 3 - downsample
-        f3, p3 = Unet.downsample_block(p2, 64)
+        f3, p3 = self.downsample_block(p2, 64)
         # 4 - downsample
-        f4, p4 = Unet.downsample_block(p3, 128)
+        f4, p4 = self.downsample_block(p3, 128)
         # 5 - bottleneck
-        bottleneck = Unet.double_conv_block(p4, 256)
+        bottleneck = self.double_conv_block(p4, 256)
         # decoder: expanding path - upsample
         # 6 - upsample
-        u6 = Unet.upsample_block(bottleneck, f4, 128)
+        u6 = self.upsample_block(bottleneck, f4, 128)
         # 7 - upsample
-        u7 = Unet.upsample_block(u6, f3, 64)
+        u7 = self.upsample_block(u6, f3, 64)
         # 8 - upsample
-        u8 = Unet.upsample_block(u7, f2, 32)
+        u8 = self.upsample_block(u7, f2, 32)
         # 9 - upsample
-        u9 = Unet.upsample_block(u8, f1, 16)
+        u9 = self.upsample_block(u8, f1, 16)
         # outputs
         outputs = Conv2D(input_dim[2], (1, 1), activation='sigmoid', name='decoder_output')(u9)
         # unet model with Keras Functional API
@@ -56,9 +60,7 @@ class Unet(ICNN):
     def train(self, train_x, train_label, val_set=0.0, model_dir="model3D_full"):
         save_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
         model_dir = "%s/%s_%s/" % (self.dir, model_dir, save_time)
-        # train_x = utils.transform_dimensions(train_x, [0, 2, 3, 1])
-        # train_label = utils.transform_dimensions(train_label, [0, 2, 3, 1])
-        # model_dir = self.dir + model_dir
+
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
         model = self.model
@@ -94,6 +96,16 @@ class Unet(ICNN):
         size = img[0].shape
         return unpatchify(bright_field, size)
 
+    def predict_smooth(self, img):
+        smooth_predicted_img = predict_img_with_smooth_windowing(
+            img[0],
+            self.input_dim[0],
+            subdivisions=2,
+            nb_classes=self.input_dim[2],
+            pred_func=lambda img_batch_subdiv: self.predict_patches(img_batch_subdiv)
+        )
+        return smooth_predicted_img
+
     def load_model(self, model_dir='/model/'):
         """
         loads model
@@ -103,29 +115,26 @@ class Unet(ICNN):
         path = self.dir + model_dir
         self.model = models.load_model(path)
 
-    @staticmethod
-    def double_conv_block(x, n_filters):
+    def double_conv_block(self, x, n_filters):
         # Conv2D then ReLU activation
-        x = Conv2D(n_filters, 3, padding="same", activation=LeakyReLU())(x)
+        x = Conv2D(n_filters, self._filter_size, padding="same", activation=LeakyReLU())(x)
         # Conv2D then ReLU activation
-        x = Conv2D(n_filters, 3, padding="same", activation=LeakyReLU())(x)
+        x = Conv2D(n_filters, self._filter_size, padding="same", activation=LeakyReLU())(x)
         return x
 
-    @staticmethod
-    def downsample_block(x, n_filters):
-        f = Unet.double_conv_block(x, n_filters)
-        p = MaxPool2D(2)(f)
+    def downsample_block(self, x, n_filters):
+        f = self.double_conv_block(x, n_filters)
+        p = MaxPool2D(self._stride)(f)
         # p = Dropout(0.3)(p)
         return f, p
 
-    @staticmethod
-    def upsample_block(x, conv_features, n_filters):
+    def upsample_block(self, x, conv_features, n_filters):
         # upsample
-        x = Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
+        x = Conv2DTranspose(n_filters, self._filter_size, self._stride, padding="same")(x)
         # concatenate
         x = concatenate([x, conv_features])
         # dropout
         # x = Dropout(0.3)(x)
         # Conv2D twice with ReLU activation
-        x = Unet.double_conv_block(x, n_filters)
+        x = self.double_conv_block(x, n_filters)
         return x
