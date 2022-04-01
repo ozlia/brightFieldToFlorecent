@@ -8,7 +8,7 @@ from ICNN import ICNN
 import getpass
 import os
 
-class AutoEncoderBright2Bright(ICNN):
+class AutoEncoderCrossDomain(ICNN):
 
     def __init__(self, input_dim=(128, 128, 6), batch_size=32, epochs=100):
         stride = 2
@@ -38,7 +38,7 @@ class AutoEncoderBright2Bright(ICNN):
         self.USER = getpass.getuser().split("@")[0]
         print(self.USER)
 
-        self.dir = "/home/%s/%s" % (self.USER, "bright2brightAE")
+        self.dir = utils.DIRECTORY
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 

@@ -7,7 +7,7 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import backend as KB
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
-from CrossDomainAE.crossDomainAE import AutoEncoderBright2Bright
+from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
 
 img_size = (6, 64, 64)    # (x,y,z) patch size
 img_size_rev = (img_size[1], img_size[2], img_size[0])
@@ -45,7 +45,7 @@ print('Done Reading and Patching, Time: ', stop - start)
 # Free up RAM in case the model definition cells were run multiple times
 KB.clear_session()
 print("init model")
-model = AutoEncoderBright2Bright(img_size_rev, epochs=epochs, batch_size=batch_size)
+model = AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size)
 print("training model")
 # train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
 #                                                     shuffle=True)
