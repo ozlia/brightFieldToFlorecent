@@ -9,18 +9,21 @@ from tensorflow.keras import backend as KB
 import pandas as pd
 from pandas import DataFrame
 from argparse import ArgumentParser
+from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
+from UNET.SpecialUnetLiad import Unet
 
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
 # interpreter_path_omer  = /home/omertag/.conda/envs/my_env/bin/python
 
 METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
-img_size = (6, 64, 64)    # (x,y,z)
+img_size = (6, 64, 64)  # (x,y,z)
+
+
 # batch_size = 32
 # epochs = 1000
 # org_type = "Mitochondria/"  # change the organelle name
 
-def run(dir, epochs=1000, batch_size=32 , read_img = False, org_type = None, img_read_limit = 150, model='Unet'):
-
+def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=None, img_read_limit=150):
     utils.set_dir(dir)
     img_size_rev = (img_size[1], img_size[2], img_size[0])
     start = datetime.now()
@@ -32,7 +35,8 @@ def run(dir, epochs=1000, batch_size=32 , read_img = False, org_type = None, img
             org_type = org_type + "/"
 
     if read_img:
-        data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=img_read_limit), img_size)
+        data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=img_read_limit),
+                                                             img_size)
         utils.save_numpy_array(data_input, "input_images_after_data_prepare_norm")
         utils.save_numpy_array(data_output, "output_images_after_data_prepare_norm")
         print("Saved successfully numpy array at %s" % utils.DIRECTORY)
@@ -52,7 +56,7 @@ def run(dir, epochs=1000, batch_size=32 , read_img = False, org_type = None, img
     # Free up RAM in case the model definition cells were run multiple times
     KB.clear_session()
     print("init model")
-    model = AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size)
+    model = create_model(model_name, img_size_rev=img_size_rev, epochs=epochs, batch_size=batch_size)
     print("training model")
     train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
                                                         shuffle=True)
@@ -134,30 +138,46 @@ def cmd_helper_script():
     # ['StructureDisplayName']
     # ['ChannelNumberBrightfield']
 
+
 def organelle_list():
     matadata_df = pd.read_csv(METADATA_CSV_PATH)
-    all_org = list(set(pd.read_csv(METADATA_CSV_PATH)['StructureDisplayName'])).remove("None")
+    all_org = list(set(matadata_df['StructureDisplayName']))
     all_org.remove("None")
     for i in range(0, len(all_org), 3):
         print(', '.join(all_org[i:i + 3]))
 
+
+def create_model(name: str, img_size_rev, epochs, batch_size):
+    name = name.lower()
+    case = {
+        "img2img": AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size),
+        "crossdomain": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
+        "unet": Unet(img_size_rev),  # todo liad : change to your config
+        "pix2pix": None
+    }
+    return case.get(name, None)
+
+
 def parse_command_line():
     parser = ArgumentParser(description="Getting arguments to run model")
-    # parser.add_argument("-m", "--model_type", matavar="", nargs=1, required=True, help="Model to run")
+    parser.add_argument("-m", "--model_type", nargs=1, required=True, help="Model to run [img2img, crossdomain, unet]")
     parser.add_argument("-d", "--dir", default=["run_%s" % datetime.now().strftime("%d-%m-%Y_%H-%M")],
                         nargs=1, help="Directory name to save")
     parser.add_argument("-e", "--epochs", nargs=1, default=1000, type=int, help="Number of epochs")
-    parser.add_argument("-bz", "--batch_size" , nargs=1, default=32, type=int, help='Batch size')
-    parser.add_argument("-ri", "--read_img", action='store_true', default=False, help='Use this flag to read new image')
+    parser.add_argument("-bz", "--batch_size", nargs=1, default=32, type=int, help='Batch size')
+    parser.add_argument("-ri", "--read_img", action='store_true', default=False,
+                        help='Use this flag to read new images')
     parser.add_argument("-o", "--org_type", nargs=1, default=None, type=str,
-                        help='Name of Organelle from list: %s' % ', '.join(sorted(set(pd.read_csv(METADATA_CSV_PATH)['StructureDisplayName']))) )
+                        help='Name of Organelle from list: %s' % ', '.join(
+                            sorted(set(pd.read_csv(METADATA_CSV_PATH)['StructureDisplayName']))))
     parser.add_argument("-rl", "--read_limit", default=150, type=int, help='Maximum number of images to read')
     args = parser.parse_args()
     run(epochs=args.epochs, batch_size=args.batch_size, dir=args.dir, read_img=args.read_img, org_type=args.org_type,
         img_read_limit=args.read_limit)
 
+
 if __name__ == '__main__':
-    # run(epochs=1000, batch_size=32, dir="BasicAE_64x_2*2", read_img=True, org_type="Mitochondria",
-    #     img_read_limit=150)
-    # run(dir="BasicAE_64x_2*2")
+    # run(epochs=200, batch_size=16, dir="BasicAE_64x_2*2", read_img=True, org_type="Mitochondria",
+    #     img_read_limit=200)
+    # run(dir="BasicAE_64x_2*2", epochs=200, batch_size=32)
     parse_command_line()

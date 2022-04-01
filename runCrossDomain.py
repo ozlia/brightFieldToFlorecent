@@ -2,7 +2,6 @@ import numpy as np
 import data_prepare
 from sklearn.model_selection import train_test_split
 import utils
-from BasicAE.autoEncoder import AutoEncoder
 from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import backend as KB
