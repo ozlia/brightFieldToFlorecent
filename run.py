@@ -172,8 +172,8 @@ def parse_command_line():
                             sorted(set(pd.read_csv(METADATA_CSV_PATH)['StructureDisplayName']))))
     parser.add_argument("-rl", "--read_limit", default=150, type=int, help='Maximum number of images to read')
     args = parser.parse_args()
-    run(epochs=args.epochs, batch_size=args.batch_size, dir=args.dir, read_img=args.read_img, org_type=args.org_type,
-        img_read_limit=args.read_limit)
+    run(model_name=args.model_type, epochs=args.epochs, batch_size=args.batch_size, dir=args.dir,
+        read_img=args.read_img, org_type=args.org_type, img_read_limit=args.read_limit)
 
 
 if __name__ == '__main__':
