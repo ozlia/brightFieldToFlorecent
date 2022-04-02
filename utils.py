@@ -9,7 +9,6 @@ from sklearn.preprocessing import normalize
 from tensorflow import transpose
 import imageio
 
-
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
 # print("enter select directory name for this run: ")
@@ -116,3 +115,48 @@ def save_numpy_array(array, path):
 
 def transform_dimensions(array, new_shape_indexes):
     return np.array(transpose(array, new_shape_indexes))
+
+
+def sample_images(model, brightfield_imgs, fluorescent_imgs, fig_name, rescale=False, org_type=None):
+    assert len(brightfield_imgs.shape) == len(
+        fluorescent_imgs.shape) == 4, f"You must send a 4D array of brightfield and fluorescent images\nArrays shapes received:\n\tBrightfield: {brightfield_imgs.shape}\n\tFluorescent: {fluorescent_imgs.shape}"
+
+    imgs_path = 'sampled_images'
+    if org_type is not None:
+        imgs_path = os.path.join(org_type, imgs_path)
+    images_root_dir = os.path.join(DIRECTORY, imgs_path)
+    os.makedirs(images_root_dir, exist_ok=True)
+
+    rows = brightfield_imgs.shape[0]  # 3 is recommended
+    cols = 3  # always brightfield,gen fluorescent,fluorescent
+
+    gen_fluorescent = model.predict(brightfield_imgs)
+    gen_imgs = np.concatenate(
+        [brightfield_imgs[:, :, :, 0], np.squeeze(gen_fluorescent[:, :, :, 0]), fluorescent_imgs[:, :, :, 0]])
+
+    # TODO Rescale images 0 - 1 not sure if necessary
+    if rescale:
+        gen_imgs = 0.5 * gen_imgs + 0.5
+
+    titles = ['brightfield', 'gen fluorescent', 'real fluorescent']
+    fig, axs = plt.subplots(rows, cols)
+    cnt = 0
+    for i in range(rows):
+        for j in range(cols):
+            axs[i, j].imshow(gen_imgs[cnt], cmap='gray')
+            axs[i, j].set_title(titles[i])
+            axs[i, j].axis('off')
+            cnt += 1
+    fig_path = os.path.join(images_root_dir, fig_name)
+    fig.savefig(fig_path)
+    # plt.show()
+    plt.close()
+
+
+def patchify_predict_imgs(model, imgs, patch_dims):  # assuming img dims are (1,patch_dims)
+    patches = utils_patchify(imgs, patch_dims, over_lap_steps=1)
+    for row in patches:
+        for patch in row:
+            patch[0] = model.predict(patch)[0]
+    size = imgs[0].shape
+    return unpatchify(patches, size)
