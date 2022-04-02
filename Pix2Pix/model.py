@@ -32,8 +32,8 @@ class Pix2Pix:
         if self.utilize_patchGAN:
             # Calculate patch size of D (PatchGAN)
             patchGAN_patch_size = 2 ** 4
-            patch = int(self.img_shape[1] / patchGAN_patch_size)
-            self.disc_patch = (patch, patch, 1)
+            self.patch_size = int(self.img_rows / patchGAN_patch_size)
+            self.disc_patch = (self.patch_size, self.patch_size, 1)
             disc_loss = 'mse'
         else:
             disc_loss = 'binary_crossentropy'
@@ -48,8 +48,9 @@ class Pix2Pix:
             self.print_summary()
 
     def build_model(self, disc_loss):
-        self.d_optimizer = Adam(0.0002, 0.5)
-        self.g_optimizer = Adam(0.0002, 0.5)
+        #0.5 beta
+        self.d_optimizer = Adam(0.0002,0.5)
+        self.g_optimizer = Adam(0.0002,0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -77,14 +78,14 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=[disc_loss, 'mae'], loss_weights=[1, 100], optimizer=self.g_optimizer)
+        self.combined.compile(loss=[disc_loss, 'mae'], loss_weights=[10, 90], optimizer=self.g_optimizer)
 
     def build_generator(self):
         """U-Net Generator"""
 
         def conv2d(layer_input, filters, f_size=4, bn=True):
             """Layers used during downsampling"""
-            d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same', activation='relu')(layer_input)
+            d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same', activation=LeakyReLU())(layer_input)
             if bn:
                 d = BatchNormalization(momentum=0.8)(d)  # new epsilon addition
             return d
@@ -92,12 +93,12 @@ class Pix2Pix:
         def deconv2d(layer_input, skip_input, filters, f_size=4, dropout_rate=0):
             """Layers used during upsampling"""
             u = UpSampling2D(size=2)(layer_input)
-            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same')(u)
+            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same',activation=LeakyReLU())(u)
             if dropout_rate:
                 u = Dropout(dropout_rate)(u)
             u = BatchNormalization(momentum=0.8)(u)
             u = Concatenate()([u, skip_input])
-            u = LeakyReLU(alpha=0.2)(u)
+            # u = LeakyReLU(alpha=0.2)(u)
             return u
 
         # Image input
@@ -109,10 +110,12 @@ class Pix2Pix:
         d3 = conv2d(d2, self.gf * 4)
         d4 = conv2d(d3, self.gf * 8)
         d5 = conv2d(d4, self.gf * 16)
+        d6 = conv2d(d5, self.gf * 16)
 
         # Upsampling
-        u2 = deconv2d(d5, d4, self.gf * 8, dropout_rate=0.1)
-        u3 = deconv2d(u2, d3, self.gf * 4, dropout_rate=0.2)
+        u1 = deconv2d(d6, d5, self.gf * 8,dropout_rate=0.1)
+        u2 = deconv2d(u1, d4, self.gf * 8,dropout_rate=0.1)
+        u3 = deconv2d(u2, d3, self.gf * 4)
         u4 = deconv2d(u3, d2, self.gf * 2)
         u5 = deconv2d(u4, d1, self.gf)
 
@@ -130,7 +133,7 @@ class Pix2Pix:
             if dropout_rate > 0:
                 d = Dropout(dropout_rate)(d)
             if bn:
-                d = BatchNormalization(momentum=0.8, epsilon=0.01)(d)
+                d = BatchNormalization(momentum=0.8)(d)
             return d
 
         img_A = Input(shape=self.img_shape)
@@ -140,12 +143,13 @@ class Pix2Pix:
         combined_imgs = Concatenate(axis=-1)([img_A, img_B])
 
         d1 = d_layer(combined_imgs, self.df)
-        d2 = d_layer(d1, self.df * 2)
+        d2 = d_layer(d1, self.df * 2, dropout_rate=0.1)
         d3 = d_layer(d2, self.df * 4)
         d4 = d_layer(d3, self.df * 8)
 
-        if self.utilize_patchGAN: # filter output
-            validity = Conv2D(1, kernel_size=4, strides=1, padding='same', activation='sigmoid')(d4)
+        if self.utilize_patchGAN:  # filter output
+            # originally padding same
+            validity = Conv2D(1, kernel_size=self.patch_size, strides=1, padding='same', activation='sigmoid')(d4)
         else:
             validity = Flatten()(d4)
             validity = Dense(1)(validity)
@@ -154,7 +158,7 @@ class Pix2Pix:
         return Model([img_A, img_B], validity)
 
     def train(self, epochs, batch_size_in_patches=50, sample_interval_in_batches=50,
-              report_sample_interval_in_batches=1,shuffle_batches=False):
+              report_sample_interval_in_batches=1, shuffle_batches=False):
         start_time = datetime.datetime.now()
 
         # Adversarial loss ground truths
@@ -170,7 +174,8 @@ class Pix2Pix:
 
         for epoch in range(epochs):
             for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
-                    self.data_handler.load_images_as_batches(batch_size=batch_size_in_patches,shuffle=shuffle_batches)):
+                    self.data_handler.load_images_as_batches(batch_size=batch_size_in_patches,
+                                                             shuffle=shuffle_batches)):
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
@@ -206,8 +211,8 @@ class Pix2Pix:
                 if ((batch_i + 1) % sample_interval_in_batches) == 0:
                     self.sample_images(epoch, batch_i + 1)
 
-                if d_loss < 0.001:  # Typically points towards vanishing gradient
-                    raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
+                # if d_loss < 0.0001:  # Typically points towards vanishing gradient
+                #     raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
 
     def sample_images(self, epoch, batch_i):
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,
@@ -296,21 +301,18 @@ class Pix2Pix:
 
 
 if __name__ == '__main__':
-    # addition to running offline?
-    # os.system("nohup bash -c '" +
-    #           sys.executable + " pix2pix.py --size 192 >result.txt" +
-    #           "' &")
+    # Current changes   -   90x10 loss weights, leakyRelu all layers, extra gen layer, dropout on disc
 
     batch_size = 32  # 3500 patches, ~107 batches per epoch if limit=150
-    img_sample_interval_in_batches = 53
-    report_sample_interval_in_batches = 32
+    img_sample_interval_in_batches = 106
+    report_sample_interval_in_batches = 106
     print_summary = False
     utilize_patchGAN = False
     nImages_to_sample = 3
     shuffle_batches = True
 
     gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN, nImages_to_sample=nImages_to_sample)
-    gan.train(epochs=100, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
-              report_sample_interval_in_batches=report_sample_interval_in_batches,shuffle_batches=shuffle_batches)
+    gan.train(epochs=300, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
+              report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
     gan.predict_and_save()
     gan.save_model_and_progress_report()

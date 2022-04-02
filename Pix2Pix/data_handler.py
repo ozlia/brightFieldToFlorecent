@@ -31,17 +31,17 @@ class data_handler():
 
     def load_prep_images(self):
         brightfield_imgs, fluorescent_imgs = self.load_images_from_memory()
-        train_test_split_tup = train_test_split(brightfield_imgs, fluorescent_imgs,
+        utils.transform_dimensions(brightfield_imgs, [0, 2, 3, 1])
+        utils.transform_dimensions(fluorescent_imgs, [0, 2, 3, 1])
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(brightfield_imgs, fluorescent_imgs,
                                                 test_size=0.3,
                                                 random_state=3,
                                                 shuffle=True)
 
-        self.X_train, self.X_test, self.y_train, self.y_test = [utils.transform_dimensions(arr, [0, 2, 3, 1]) for arr in
-                                                                train_test_split_tup]
         self.X_train = utils.utils_patchify(self.X_train, self.img_size_rev, resize=True, over_lap_steps=1)
         self.y_train = utils.utils_patchify(self.y_train, self.img_size_rev, resize=True, over_lap_steps=1)
 
-        del brightfield_imgs, fluorescent_imgs, train_test_split_tup
+        del brightfield_imgs, fluorescent_imgs
         gc.collect()
 
     def load_images_from_memory(self):
