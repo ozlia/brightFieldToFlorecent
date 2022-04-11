@@ -1,7 +1,7 @@
-import numpy as np
 import data_prepare
 from sklearn.model_selection import train_test_split
 import utils
+from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
 from Img2ImgAE.autoEncoder import AutoEncoder
 from datetime import datetime
 import tensorflow as tf
@@ -9,7 +9,7 @@ from tensorflow.keras import backend as KB
 import pandas as pd
 from pandas import DataFrame
 from argparse import ArgumentParser
-from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
+# from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
 from UNET.SpecialUnetLiad import Unet
 
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
@@ -18,10 +18,6 @@ from UNET.SpecialUnetLiad import Unet
 METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
 img_size = (6, 64, 64)  # (x,y,z)
 
-
-# batch_size = 32
-# epochs = 1000
-# org_type = "Mitochondria/"  # change the organelle name
 
 def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=None, img_read_limit=150):
     utils.set_dir(dir)
@@ -60,29 +56,21 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
     print("training model")
     train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
                                                         shuffle=True)
-    # split_to = 4
-    # split_x = np.array_split(train_x, split_to)
-    # split_y = np.array_split(train_y, split_to)
-    # for i in range(split_to):
-    #     model.train(split_x[i], split_y[i], val_set=0.1, model_dir="/AutoEncoder3D_64px/")
-
     model.train(train_x, train_y, val_set=0.1, model_dir=dir)
-    # model.train(train_x, train_y, val_set=0.1, model_dir=dir)
     stop = datetime.now()
     print('Done Train, Time: ', stop - start)
 
-    # model.load_model(model_dir="/model2D_full/")
+    # model.load_model(model_dir="/Unet_Mitochondria_06-04-2022_18-40/")
 
     print("Generate new pic")
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
     predicted_img = model.predict([data_input[0]])
+    # predicted_img_smooth = model.predict_smooth([data_input[0]]) # only if you implanted smooth predict
     print("Saving .........")
-    utils.save_np_as_tiff(predicted_img, save_time, "predict", model)
-    utils.save_np_as_tiff(data_input[0], save_time, "input", model)
-    utils.save_np_as_tiff(data_output[0], save_time, "ground_truth", model)
-    # utils.save_full_2d_pic(predicted_img[:, :, 2], 'predicted_output_32px.png')
-    # utils.save_full_2d_pic(data_input[0][:, :, 2], 'input.png')
-    # utils.save_full_2d_pic(data_output[0][:, :, 2], 'ground_truth.png')
+    utils.save_np_as_tiff(predicted_img, save_time, "predict", model_name)
+    # utils.save_np_as_tiff(predicted_img_smooth, save_time, "predict_smooth", model_name) # only if you implanted smooth predict
+    utils.save_np_as_tiff(data_input[0], save_time, "input", model_name)
+    utils.save_np_as_tiff(data_output[0], save_time, "ground_truth", model_name)
     print("... All tiffs saved !!")
     stop = datetime.now()
     print('Done All, Time: ', stop - start)
@@ -151,8 +139,10 @@ def create_model(name: str, img_size_rev, epochs, batch_size):
     name = name.lower()
     case = {
         "img2img": AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size),
-        "crossdomain": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
-        "unet": Unet(img_size_rev),  # todo liad : change to your config
+        # "crossdomain": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size), # todo naor look here for the name of ypur model
+        "B2B": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
+        "F2F": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
+        "unet": Unet(img_size_rev, epochs=epochs, batch_size=batch_size),
         "pix2pix": None
     }
     return case.get(name, None)
@@ -173,11 +163,12 @@ def parse_command_line():
     parser.add_argument("-rl", "--read_limit", default=150, type=int, help='Maximum number of images to read')
     args = parser.parse_args()
     run(model_name=args.model_type, epochs=args.epochs, batch_size=args.batch_size, dir=args.dir,
-        read_img=args.read_img, org_type=args.org_type, img_read_limit=args.read_limit)
+        read_img=args.read_img, org_type=args.org_type[0], img_read_limit=args.read_limit)
 
 
 if __name__ == '__main__':
-    # run(epochs=200, batch_size=16, dir="BasicAE_64x_2*2", read_img=True, org_type="Mitochondria",
-    #     img_read_limit=200)
+    # todo please change your run params here
+    run(model_name='unet', epochs=100, batch_size=32, dir="Unet_Mitochondria", read_img=False, org_type="Mitochondria",
+        img_read_limit=200)
     # run(dir="BasicAE_64x_2*2", epochs=200, batch_size=32)
-    parse_command_line()
+    # parse_command_line()

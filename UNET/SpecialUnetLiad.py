@@ -117,9 +117,9 @@ class Unet(ICNN):
 
     def double_conv_block(self, x, n_filters):
         # Conv2D then ReLU activation
-        x = Conv2D(n_filters, self._filter_size, padding="same", activation=LeakyReLU())(x)
+        x = Conv2D(n_filters, self._filter_size, padding="same", activation="relu")(x)
         # Conv2D then ReLU activation
-        x = Conv2D(n_filters, self._filter_size, padding="same", activation=LeakyReLU())(x)
+        x = Conv2D(n_filters, self._filter_size, padding="same", activation='relu')(x)
         return x
 
     def downsample_block(self, x, n_filters):
@@ -134,7 +134,7 @@ class Unet(ICNN):
         # concatenate
         x = concatenate([x, conv_features])
         # dropout
-        # x = Dropout(0.3)(x)
+        x = Dropout(0.3)(x)
         # Conv2D twice with ReLU activation
         x = self.double_conv_block(x, n_filters)
         return x
