@@ -10,7 +10,7 @@ import pandas as pd
 from pandas import DataFrame
 from argparse import ArgumentParser
 # from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
-from UNET.SpecialUnetLiad import Unet
+from UNET.Unet import Unet
 
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
 # interpreter_path_omer  = /home/omertag/.conda/envs/my_env/bin/python
@@ -56,19 +56,19 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
     print("training model")
     train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
                                                         shuffle=True)
-    model.train(train_x, train_y, val_set=0.1, model_dir=dir)
+    # model.train(train_x, train_y, val_set=0.1, model_dir=dir)
     stop = datetime.now()
     print('Done Train, Time: ', stop - start)
 
-    # model.load_model(model_dir="/Unet_Mitochondria_06-04-2022_18-40/")
+    model.load_model(model_dir="/Unet_Mitochondria_11-04-2022_19-07/")
 
     print("Generate new pic")
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
     predicted_img = model.predict([data_input[0]])
-    # predicted_img_smooth = model.predict_smooth([data_input[0]]) # only if you implanted smooth predict
+    predicted_img_smooth = model.predict_smooth([data_input[0]]) # only if you implanted smooth predict
     print("Saving .........")
     utils.save_np_as_tiff(predicted_img, save_time, "predict", model_name)
-    # utils.save_np_as_tiff(predicted_img_smooth, save_time, "predict_smooth", model_name) # only if you implanted smooth predict
+    utils.save_np_as_tiff(predicted_img_smooth, save_time, "predict_smooth", model_name) # only if you implanted smooth predict
     utils.save_np_as_tiff(data_input[0], save_time, "input", model_name)
     utils.save_np_as_tiff(data_output[0], save_time, "ground_truth", model_name)
     print("... All tiffs saved !!")
