@@ -12,8 +12,8 @@ import imageio
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
 # print("enter select directory name for this run: ")
-DIRECTORY = "/home/%s" % USER
 
+DIRECTORY = "/home/%s" % USER
 
 def get_dir(dir_path):
     return os.path.join(DIRECTORY, dir_path)

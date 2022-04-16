@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 
 from tensorflow import keras
 from keras.preprocessing.image import ImageDataGenerator
@@ -7,57 +8,50 @@ import os
 
 import utils
 
+seed = 42
+np.random.seed = seed
+
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, b_path, f_path, batch_size, patch_size, num_patches, data_set='Train'):
-        self.brightfield_patches_path = b_path
-        self.fluorescent_pathces_path = f_path
-        self.num_patches = num_patches
+    def __init__(self, patches_path, batch_size, patch_size, num_patches, data_set='Train'):
+        self.patches_path = patches_path
+        self.brightfield_paths = os.listdir(os.path.join(self.patches_path, data_set, 'Brightfield'))
+        self.fluorescent_paths = os.listdir(os.path.join(self.patches_path, data_set, 'Fluorescent'))
+        self.idx_array = np.arange(start=0, stop=len(self.brightfield_paths), step=1)
         self.batch_size = batch_size
         self.patch_size = patch_size
-        self.seed = 42
-
-        self.data_gen = self.build_data_gen(data_set)
+        self.data_set = data_set
 
     def __len__(self):  # num of batches in epoch
-        return self.num_patches // self.batch_size
+        return len(self.brightfield_paths) // self.batch_size
 
     def __getitem__(self, idx):
-        brightfield_batch, fluorescent_batch = self.data_gen.__next__()
+        sampled_indexes = np.random.choice(self.idx_array, self.batch_size, replace=False)
+        np.delete(self.idx_array, sampled_indexes)
+        brightfield_batch = np.array()
+        fluorescent_batch = np.array()
+        for img_idx in sampled_indexes:
+            curr_brightfield = utils.load_numpy_array(self.brightfield_paths[img_idx])
+            curr_fluorescent = utils.load_numpy_array(self.fluorescent_paths[img_idx])
+            np.dstack(brightfield_batch, curr_brightfield)
+            np.dstack(fluorescent_batch, curr_fluorescent)
+
+        if self.data_set == 'Train':
+            brightfield_batch = self.augment_images(brightfield_batch)
+            fluorescent_batch = self.augment_images(fluorescent_batch)
+
         return brightfield_batch, fluorescent_batch
 
-    def build_data_gen(self, data_set):
-        '''
+    def on_epoch_end(self):
+        self.idx_array = np.arange(start=0, stop=len(self.brightfield_paths), step=1)
 
-        @param brightfield_path: dir path of separate grayscale (1 channel) brightfield PATCHES.
-        @param fluorescent_path: dir path of separate grayscale (1 channel) fluorescent PATCHES.
-        @param batch_size:
-        @param patch_size:
-        @return: data generator to insert into fit.
-        '''
-        if data_set == 'Train':
-            aug_args = dict(featurewise_center=True,
-                            rotation_range=90,
-                            width_shift_range=0.1,
-                            height_shift_range=0.1,
-                            zoom_range=0.2)
-            shuffle = True
-        else:
-            aug_args = dict()
-            shuffle = False
+    def augment_images(self, arr):  ##TODO consult Liad on dtype
 
-        patches_dir = utils.get_dir(os.path.join(self.org_type, 'Patches'))
-        brightfield_path = os.path.join(patches_dir, data_set, 'Brightfield')
-        fluorescent_path = os.path.join(patches_dir, data_set, 'Fluorescent')
-
-        augmentor = ImageDataGenerator(data_format='channels_last', **aug_args)
-
-        data_gen_args = dict(class_mode=None, color_mode='grayscale', seed=self.seed, batch_size=self.batch_size,
-                             shuffle=shuffle,
-                             target_size=self.patch_size)
-
-        brightfield_data_gen = augmentor.flow_from_directory(directory=brightfield_path, **data_gen_args)
-        fluorescent_data_gen = augmentor.flow_from_directory(directory=fluorescent_path, **data_gen_args)
-
-        combined_data_gen = zip(brightfield_data_gen, fluorescent_data_gen)
-        return combined_data_gen
+        # dtype='float8'
+        augmentor = ImageDataGenerator(featurewise_center=True, rotation_range=90,
+                                       width_shift_range=0.1,
+                                       height_shift_range=0.1,
+                                       zoom_range=0.2, data_format='channels_last')
+        # can save augmented image to dir as well
+        augmented_batch_gen = augmentor.flow(x=arr, y=None, shuffle=True, seed=seed, batch_size=self.batch_size)
+        return augmented_batch_gen.__next__()

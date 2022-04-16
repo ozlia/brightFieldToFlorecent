@@ -31,6 +31,17 @@ def load_paths(org_type, limit=1):
 
     # files, x_pixels, y_pixels, color
 
+def load_paths_v2(org_type, limit=None): #TODO test if this even needs the final /
+    fovs = []
+    storage_folder = '/' + os.path.join('storage','users','assafzar','fovs',org_type)
+    file_paths = os.listdir(storage_folder)
+    if limit is None:
+        limit = len(file_paths)
+    for file in file_paths:
+        if file.endswith('.tiff'):
+            fovs.append(os.path.join(storage_folder,file))
+    return fovs[:limit]
+
 
 def separate_data(fovs, img_size):
     bright_field = []
@@ -66,6 +77,3 @@ def image3d_prep(img_3d, type):
         img_3d_padded[i] = cv2.resize(img_3d[i], (896, 640), interpolation=cv2.INTER_AREA)
     img_3d_norm = utils.norm_img(img_3d_padded)
     return img_3d_norm
-
-
-

@@ -10,18 +10,23 @@ import data_prepare
 
 
 class DataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation
-    def __init__(self, img_size, patch_size, org_type, batch_size=None, resplit=False,
+    def __init__(self, patch_size, org_type, batch_size=None, resplit=False,
                  validation_size=0.0, test_size=0.1):
+        assert type(validation_size) is float and type(test_size) is float, 'data set sizes must be of type float'
+        assert test_size > 0.0 and test_size <= 1, 'You must determine a valid test set size between 0 and 1'
+
         self.org_type = org_type
 
         self.val_size = validation_size
         self.test_size = test_size
 
-        self.img_size = img_size
+        self.img_size = (6, 640, 896)
         self.patch_size = patch_size
         self.batch_size = batch_size
 
-        self.imgs_bulk_size = 150
+        # self.imgs_bulk_size = 150
+        self.imgs_bulk_size = 1
+        self.seed = 42
 
         self.patches_dir_path = path.join(self.org_type, 'Patches')
         self.images_dir_path = path.join(self.org_type, 'Images')
@@ -29,7 +34,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.images_mapping_fpath = self.get_mapping_fpath()
         self.patches_meta_data_fpath = self.get_meta_data_fpath()
 
-        self.prepare_images_in_disc(resplit)  # flexible incase we don't want to initiate this with DataGeneratorPrep
+        # self.prepare_images_in_disc(resplit)  # flexible incase we don't want to initiate this with DataGeneratorPrep
 
     def prepare_images_in_disc(self, resplit):
         self.prep_dirs()
@@ -75,7 +80,8 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
                     for data_format in ['Brightfield', 'Fluorescent']:
                         img_path = self.build_img_path(base_path=dest_images_path, data_set=data_set,
                                                        data_format=data_format)
-                        curr_img = utils.load_full_2d_pic(path.join(img_path, row['Name']))
+                        # curr_img = utils.load_full_2d_pic(path.join(img_path, row['Name']))
+                        curr_img = utils.load_numpy_array(path=path.join(img_path, row['Name']))
                         self.save_patches(img=curr_img, img_name=row['Name'], format=data_format, data_set=data_set)
 
         print(
@@ -83,7 +89,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
 
     def train_val_test_split(self, base_names=False):  # returns paths for assaf storage
 
-        imgs_paths = data_prepare.load_paths(self.org_type)
+        imgs_paths = data_prepare.load_paths_v2(self.org_type)
 
         if base_names:
             imgs_paths = [path.basename(img) for img in imgs_paths]
@@ -143,8 +149,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         X_train, X_val, X_test = self.train_val_test_split()
         for data_set_paths, data_set_name in zip([X_train, X_val, X_test], ['Train', 'Validation', 'Test']):
             # if too many imgs to read at once
-            for i in range(start=0, stop=len(data_set_paths),
-                           step=self.imgs_bulk_size):
+            for i in range(0, len(data_set_paths),self.imgs_bulk_size):
                 curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
                 data_sets = data_prepare.separate_data(curr_data_set_paths, self.img_size)
                 brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
@@ -163,7 +168,8 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
 
     def save_img_and_patches(self, img, img_name, format, data_set):
         img_path = self.build_img_path(self.images_dir_path, data_set, format)
-        utils.save_full_2d_pic(img=img, name=path.join(img_path, img_name))
+        utils.save_numpy_array(array=img,path=path.join(img_path, img_name))
+        # utils.save_full_2d_pic(img=img, name=path.join(img_path, img_name))
         self.save_patches(img=img, img_name=img_name, format=format, data_set=data_set)
 
     def save_patches(self, img, img_name: str, format, data_set):
@@ -172,7 +178,8 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         patch_path = self.build_img_path(self.patches_dir_path, data_set, format)
         for row in patches:
             for i, patch in enumerate(row):
-                utils.save_full_2d_pic(img=patch, name=path.join(patch_path, f'{img_name}_{i}.png'))
+                utils.save_numpy_array(array=img, path=path.join(patch_path, f'{img_name}_{i}.png'))
+                # utils.save_full_2d_pic(img=patch, name=path.join(patch_path, f'{img_name}_{i}.png'))
 
         self.save_patches_meta_data()
 
@@ -196,7 +203,10 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
 
     def prep_dirs(self):
         origin_wd = getcwd()
-        chdir(path.join(utils.get_dir(self.org_type)))
+        root_dir = utils.DIRECTORY
+        makedirs(root_dir,exist_ok=True)
+        chdir(root_dir)
+
         makedirs(self.meta_dir_path, exist_ok=True)
 
         for data_set in ['Train', 'Validation', 'Test']:
