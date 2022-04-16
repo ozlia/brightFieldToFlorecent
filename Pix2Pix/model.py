@@ -8,7 +8,6 @@ from skimage.metrics import peak_signal_noise_ratio as peak_snr, structural_simi
     mean_squared_error as mse
 
 import datetime
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
@@ -16,7 +15,105 @@ import pandas as pd
 from Pix2Pix.data_handler import data_handler
 
 
-class Pix2Pix:
+class P2P_Discriminator():
+    def __init__(self, use_patches=False):
+        self.n_filters = 64
+        self.optimizer = Adam(0.0002, 0.5)
+        self.build_model(use_patches)
+        self.compile_model(use_patches)
+
+    def add_conv_layer(self, layer_input, filters, f_size=4, bn=True, dropout_rate=0):
+        """Discriminator layer"""
+        d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
+        d = LeakyReLU(alpha=0.2)(d)
+        if dropout_rate > 0:
+            d = Dropout(dropout_rate)(d)
+        if bn:
+            d = BatchNormalization(momentum=0.8)(d)
+        return d
+
+    def build_model(self, use_patches):
+        img_A = Input(shape=self.img_shape)
+        img_B = Input(shape=self.img_shape)
+
+        # Concatenate image and conditioning image by channels to produce input
+        combined_imgs = Concatenate(axis=-1)([img_A, img_B])
+
+        d1 = self.add_conv_layer(combined_imgs, self.df)
+        d2 = self.add_conv_layer(d1, self.n_filters * 2, dropout_rate=0.1)
+        d3 = self.add_conv_layer(d2, self.n_filters * 4)
+        d4 = self.add_conv_layer(d3, self.n_filters * 8)
+
+        if not use_patches:  # filter output
+            # originally padding same
+            validity = Conv2D(1, kernel_size=self.patch_size, strides=1, padding='same', activation='sigmoid')(d4)
+        else:
+            validity = Flatten()(d4)
+            validity = Dense(1)(validity)
+            validity = Activation('sigmoid')(validity)
+
+        self.model = Model([img_A, img_B], validity)
+
+    def compile(self, use_patches):
+        if use_patches:
+            d_loss = 'mse'
+        else:
+            d_loss = 'binary_crossentropy'
+        self.model.compile(loss=d_loss, optimizer=self.optimizer)
+class P2P_Generator():
+    def __init__(self):
+        self.filters = 64
+        self.build_model()
+        self.compile()
+
+    def add_conv_layer(self, layer_input, filters, f_size=4, bn=True):
+        """Layers used during downsampling"""
+        d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same', activation=LeakyReLU())(layer_input)
+        if bn:
+            d = BatchNormalization(momentum=0.8)(d)  # new epsilon addition
+        return d
+
+    def add_deconv_layer(self, layer_input, skip_input, filters, f_size=4, dropout_rate=0):
+        """Layers used during upsampling"""
+        u = UpSampling2D(size=2)(layer_input)
+        u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same', activation=LeakyReLU())(u)
+        if dropout_rate:
+            u = Dropout(dropout_rate)(u)
+        u = BatchNormalization(momentum=0.8)(u)
+        u = Concatenate()([u, skip_input])
+        # u = LeakyReLU(alpha=0.2)(u)
+        return u
+
+    def build_model(self):
+        # Image input
+        d0 = Input(shape=self.img_shape)
+
+        # Downsampling
+        d1 = self.add_conv_layer(d0, self.filters, bn=False)
+        d2 = self.add_conv_layer(d1, self.filters * 2)
+        d3 = self.add_conv_layer(d2, self.filters * 4)
+        d4 = self.add_conv_layer(d3, self.filters * 8)
+        d5 = self.add_conv_layer(d4, self.filters * 16)
+        d6 = self.add_conv_layer(d5, self.filters * 16)
+
+        # Upsampling
+        u1 = self.add_deconv_layer(d6, d5, self.filters * 8, dropout_rate=0.1)
+        u2 = self.add_deconv_layer(u1, d4, self.filters * 8, dropout_rate=0.1)
+        u3 = self.add_deconv_layer(u2, d3, self.filters * 4)
+        u4 = self.add_deconv_layer(u3, d2, self.filters * 2)
+        u5 = self.add_deconv_layer(u4, d1, self.filters)
+
+        u6 = UpSampling2D(size=2)(u5)
+        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='sigmoid')(u6)
+
+        self.model = Model(d0, output_img)
+
+    def compile(self):
+        optimizer = Adam(0.0002, 0.5)
+        self.generator.compile(loss='mae', optimizer=optimizer)
+
+
+class Pix2Pix(Model):
     def __init__(self, batch_size=-1, print_summary=False, utilize_patchGAN=True, nImages_to_sample=3):
         self.progress_report = {k: [] for k in ['Epoch', 'Batch', 'G Loss', 'D Loss']}
         self.utilize_patchGAN = utilize_patchGAN
@@ -29,40 +126,20 @@ class Pix2Pix:
         self.img_cols = self.img_shape[1]
         self.channels = self.img_shape[2]
 
-        if self.utilize_patchGAN:
-            # Calculate patch size of D (PatchGAN)
+        if self.utilize_patchGAN:  # Calculate patch size of D (PatchGAN)
             patchGAN_patch_size = 2 ** 4
             self.patch_size = int(self.img_rows / patchGAN_patch_size)
             self.disc_patch = (self.patch_size, self.patch_size, 1)
-            disc_loss = 'mse'
-        else:
-            disc_loss = 'binary_crossentropy'
-
-        # Number of filters in the first layer of G and D
-        self.gf = 64
-        self.df = 64
-
-        self.build_model(disc_loss)
 
         if print_summary:
             self.print_summary()
 
+        self.build_model()
+
     def build_model(self, disc_loss):
-        #0.5 beta
-        self.d_optimizer = Adam(0.0002,0.5)
-        self.g_optimizer = Adam(0.0002,0.5)
 
-        # Build and compile the discriminator
-        self.discriminator = self.build_discriminator()
-        self.discriminator.compile(loss=disc_loss, optimizer=self.d_optimizer)
-
-        # -------------------------
-        # Construct Computational
-        #   Graph of Generator
-        # -------------------------
-
-        # Build the generator
-        self.generator = self.build_generator()
+        self.discriminator = P2P_Discriminator(self.utilize_patchGAN)
+        self.generator = P2P_Generator()
 
         # Input images and their conditioning images
         real_fluorescent = Input(shape=self.img_shape)
@@ -79,83 +156,6 @@ class Pix2Pix:
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
         self.combined.compile(loss=[disc_loss, 'mae'], loss_weights=[10, 90], optimizer=self.g_optimizer)
-
-    def build_generator(self):
-        """U-Net Generator"""
-
-        def conv2d(layer_input, filters, f_size=4, bn=True):
-            """Layers used during downsampling"""
-            d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same', activation=LeakyReLU())(layer_input)
-            if bn:
-                d = BatchNormalization(momentum=0.8)(d)  # new epsilon addition
-            return d
-
-        def deconv2d(layer_input, skip_input, filters, f_size=4, dropout_rate=0):
-            """Layers used during upsampling"""
-            u = UpSampling2D(size=2)(layer_input)
-            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same',activation=LeakyReLU())(u)
-            if dropout_rate:
-                u = Dropout(dropout_rate)(u)
-            u = BatchNormalization(momentum=0.8)(u)
-            u = Concatenate()([u, skip_input])
-            # u = LeakyReLU(alpha=0.2)(u)
-            return u
-
-        # Image input
-        d0 = Input(shape=self.img_shape)
-
-        # Downsampling
-        d1 = conv2d(d0, self.gf, bn=False)
-        d2 = conv2d(d1, self.gf * 2)
-        d3 = conv2d(d2, self.gf * 4)
-        d4 = conv2d(d3, self.gf * 8)
-        d5 = conv2d(d4, self.gf * 16)
-        d6 = conv2d(d5, self.gf * 16)
-
-        # Upsampling
-        u1 = deconv2d(d6, d5, self.gf * 8,dropout_rate=0.1)
-        u2 = deconv2d(u1, d4, self.gf * 8,dropout_rate=0.1)
-        u3 = deconv2d(u2, d3, self.gf * 4)
-        u4 = deconv2d(u3, d2, self.gf * 2)
-        u5 = deconv2d(u4, d1, self.gf)
-
-        u6 = UpSampling2D(size=2)(u5)
-        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='sigmoid')(u6)
-
-        return Model(d0, output_img)
-
-    def build_discriminator(self):
-
-        def d_layer(layer_input, filters, f_size=4, bn=True, dropout_rate=0):
-            """Discriminator layer"""
-            d = Conv2D(filters, kernel_size=f_size, strides=2, padding='same')(layer_input)
-            d = LeakyReLU(alpha=0.2)(d)
-            if dropout_rate > 0:
-                d = Dropout(dropout_rate)(d)
-            if bn:
-                d = BatchNormalization(momentum=0.8)(d)
-            return d
-
-        img_A = Input(shape=self.img_shape)
-        img_B = Input(shape=self.img_shape)
-
-        # Concatenate image and conditioning image by channels to produce input
-        combined_imgs = Concatenate(axis=-1)([img_A, img_B])
-
-        d1 = d_layer(combined_imgs, self.df)
-        d2 = d_layer(d1, self.df * 2, dropout_rate=0.1)
-        d3 = d_layer(d2, self.df * 4)
-        d4 = d_layer(d3, self.df * 8)
-
-        if self.utilize_patchGAN:  # filter output
-            # originally padding same
-            validity = Conv2D(1, kernel_size=self.patch_size, strides=1, padding='same', activation='sigmoid')(d4)
-        else:
-            validity = Flatten()(d4)
-            validity = Dense(1)(validity)
-            validity = Activation('sigmoid')(validity)
-
-        return Model([img_A, img_B], validity)
 
     def train(self, epochs, batch_size_in_patches=50, sample_interval_in_batches=50,
               report_sample_interval_in_batches=1, shuffle_batches=False):
@@ -213,6 +213,7 @@ class Pix2Pix:
 
                 # if d_loss < 0.0001:  # Typically points towards vanishing gradient
                 #     raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
+
 
     def sample_images(self, epoch, batch_i):
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,

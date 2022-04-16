@@ -15,11 +15,16 @@ USER = getpass.getuser().split("@")[0]
 DIRECTORY = "/home/%s" % USER
 
 
+def get_dir(dir_path):
+    return os.path.join(DIRECTORY, dir_path)
+
+
 def set_dir(name):
     global DIRECTORY
     DIRECTORY = "%s/%s" % (DIRECTORY, name)
     if not os.path.exists(DIRECTORY):
         os.makedirs(DIRECTORY)
+
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY
@@ -60,13 +65,19 @@ def norm_img(img):
     # return img / img.max()
     for i in range(img.shape[0]):
         norm = cv2.normalize(img[i], None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-        img[i] = (norm/255).astype(np.float16)
+        img[i] = (norm / 255).astype(np.float16)
     return img
 
 
 def save_full_2d_pic(img, name):
     # cv2.imwrite(DIRECTORY + '/' + name, (np.squeeze(img)).astype(np.uint16))
     plt.imsave(DIRECTORY + '/' + name, np.squeeze(img), cmap=plt.cm.gray)
+
+
+def load_full_2d_pic(img_path):
+    out = plt.imread(fname=get_dir(img_path))  # format hopefully auto detected
+    assert out.shape[2] == 1, 'grayscale image loaded as RGB, requires fixing'
+    return out
 
 
 def save_np_as_tiff(img, time, name, model):
@@ -160,3 +171,19 @@ def patchify_predict_imgs(model, imgs, patch_dims):  # assuming img dims are (1,
             patch[0] = model.predict(patch)[0]
     size = imgs[0].shape
     return unpatchify(patches, size)
+
+
+# def is_not_empty(dir_path, user=None):  # also checks in subdirs
+#     if user is None:
+#         dir_path = get_dir(dir_path)
+#     else:
+#         set_dir(user)
+#         dir_path = get_dir(dir_path)
+#         set_dir(USER)
+#     return os.path.isdir(dir_path) and sum([len(files) for r, d, files in os.walk(dir_path)]) > 0
+
+def get_usernames(curr_user_first=True):
+    usernames = ['naorsu', 'tomrob', 'ozlia', 'omertag']
+    if curr_user_first:
+        usernames.insert(usernames.pop(usernames.index(USER)))
+    return usernames
