@@ -28,25 +28,26 @@ class DataGenerator(keras.utils.Sequence):
     def __getitem__(self, idx):
         sampled_indexes = np.random.choice(self.idx_array, self.batch_size, replace=False)
         np.delete(self.idx_array, sampled_indexes)
-        brightfield_batch = np.array()
-        fluorescent_batch = np.array()
+        brightfield_batch = []
+        fluorescent_batch = []
         for img_idx in sampled_indexes:
             curr_brightfield = utils.load_numpy_array(self.brightfield_paths[img_idx])
             curr_fluorescent = utils.load_numpy_array(self.fluorescent_paths[img_idx])
-            np.dstack(brightfield_batch, curr_brightfield)
-            np.dstack(fluorescent_batch, curr_fluorescent)
+            brightfield_batch.append(curr_brightfield)
+            fluorescent_batch.append(curr_fluorescent)
+            # np.dstack(fluorescent_batch, curr_fluorescent)
 
         if self.data_set == 'Train':
             brightfield_batch = self.augment_images(brightfield_batch)
             fluorescent_batch = self.augment_images(fluorescent_batch)
 
-        return brightfield_batch, fluorescent_batch
+        return np.array(brightfield_batch), np.array(fluorescent_batch)
 
     def on_epoch_end(self):
         self.idx_array = np.arange(start=0, stop=len(self.brightfield_paths), step=1)
 
-    def augment_images(self, arr):  ##TODO consult Liad on dtype
-
+    def augment_images(self, arr):  ##TODO consult Liad on dtype.
+        return arr
         # dtype='float8'
         augmentor = ImageDataGenerator(featurewise_center=True, rotation_range=90,
                                        width_shift_range=0.1,
