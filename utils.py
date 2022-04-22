@@ -12,8 +12,7 @@ import imageio
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
 # print("enter select directory name for this run: ")
-DIRECTORY = "/home/%s" % USER
-
+DIRECTORY = "/home/%s" % USER #/prediction3D_64px
 
 def set_dir(name):
     global DIRECTORY

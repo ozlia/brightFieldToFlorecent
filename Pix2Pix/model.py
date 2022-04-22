@@ -1,4 +1,7 @@
 from __future__ import print_function, division
+
+from PIL import Image
+
 import utils
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
@@ -34,27 +37,27 @@ class Pix2Pix:
             patchGAN_patch_size = 2 ** 4
             self.patch_size = int(self.img_rows / patchGAN_patch_size)
             self.disc_patch = (self.patch_size, self.patch_size, 1)
-            disc_loss = 'mse'
+            self.disc_loss = 'mse'
         else:
-            disc_loss = 'binary_crossentropy'
+            self.disc_loss = 'binary_crossentropy'
 
         # Number of filters in the first layer of G and D
         self.gf = 64
         self.df = 64
 
-        self.build_model(disc_loss)
+        # self.build_model(disc_loss)
 
         if print_summary:
             self.print_summary()
 
-    def build_model(self, disc_loss):
+    def build_model(self):
         #0.5 beta
         self.d_optimizer = Adam(0.0002,0.5)
         self.g_optimizer = Adam(0.0002,0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
-        self.discriminator.compile(loss=disc_loss, optimizer=self.d_optimizer)
+        self.discriminator.compile(loss=self.disc_loss, optimizer=self.d_optimizer)
 
         # -------------------------
         # Construct Computational
@@ -78,7 +81,7 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=[disc_loss, 'mae'], loss_weights=[10, 90], optimizer=self.g_optimizer)
+        self.combined.compile(loss=[self.disc_loss, 'mae'], loss_weights=[10, 90], optimizer=self.g_optimizer)
 
     def build_generator(self):
         """U-Net Generator"""
@@ -208,8 +211,9 @@ class Pix2Pix:
                                        sample_interval=report_sample_interval_in_batches)
 
                 # If at save interval => save generated image samples
-                if ((batch_i + 1) % sample_interval_in_batches) == 0:
-                    self.sample_images(epoch, batch_i + 1)
+                # if ((batch_i + 1) % sample_interval_in_batches) == 0:
+                #     self.sample_images(epoch, batch_i + 1)
+            self.sample_images(epoch,-1)
 
                 # if d_loss < 0.0001:  # Typically points towards vanishing gradient
                 #     raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
@@ -227,7 +231,7 @@ class Pix2Pix:
         models_root_dir = os.path.join(target_path, 'models')
         progress_root_dir = os.path.join(target_path, 'progress_reports')
         os.makedirs(progress_root_dir, exist_ok=True)
-        os.mkdir(models_root_dir)
+        os.makedirs(models_root_dir,exist_ok=True)
 
         save_model(model=self.combined, filepath=os.path.join(models_root_dir, 'combined_component'))
         save_model(model=self.generator, filepath=os.path.join(models_root_dir, 'generator_model'))
@@ -240,13 +244,15 @@ class Pix2Pix:
     def load_model(self, target_path=None, transfer_learning=False):
         if target_path is None:
             target_path = os.path.join(utils.DIRECTORY, self.data_handler.org_type, 'models')
-        try:
-            self.generator = load_model(filepath=os.path.join(target_path, 'generator_model'), compile=False)
-            if transfer_learning:
-                self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'), compile=False)
-                self.discriminator = load_model(filepath=os.path.join(target_path, 'discriminator_model'))
-        except:
-            raise FileNotFoundError(f'Could not load models from path: {target_path}')
+        origin_dir = os.getcwd()
+        os.chdir(target_path)
+        self.generator = load_model('generator_model',compile=False)
+        if transfer_learning:
+            self.discriminator = load_model('discriminator_model')
+            self.discriminator.compile(loss=self.disc_loss, optimizer=self.d_optimizer)
+            self.combined = load_model('combined_component')
+            self.combined.compile(loss=[self.disc_loss, 'mae'], loss_weights=[10, 90], optimizer=self.g_optimizer)
+        os.chdir(origin_dir)
 
     def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time, sample_interval):
         elapsed_time = datetime.datetime.now() - start_time
@@ -261,10 +267,10 @@ class Pix2Pix:
                                                                                g_loss[0],
                                                                                elapsed_time))
 
-    def predict_and_save(self):  # TODO test this
+    def predict_and_save(self):
         root_dir = os.path.join(utils.DIRECTORY, self.data_handler.org_type)
         preds_dir_name = 'predicted_images'
-        eval_metrics: dict = {k: [] for k in ['peak_snr', 'ssim', 'mse']}
+        eval_metrics: dict = {k: [] for k in ['peak_snr', 'ssim', 'mse','pearson']}
         for i in range(len(self.data_handler.X_test)):
             curr_imgs_output_dir = os.path.join(self.data_handler.org_type, preds_dir_name, str(i))
             os.makedirs(name=os.path.join(utils.DIRECTORY, curr_imgs_output_dir),
@@ -273,12 +279,12 @@ class Pix2Pix:
             brightfield = np.expand_dims(self.data_handler.X_test[i], axis=0)  # for patchify process
             real_fluorescent = self.data_handler.y_test[i]
             gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield, self.data_handler.img_size_rev)
-
             # TODO might need to narrow down to only channel 2 of fluorescent
             eval_metrics['peak_snr'].append(
                 peak_snr(real_fluorescent, gen_fluorescent, data_range=1.0))  # we need the maximal pixel value
             eval_metrics['ssim'].append(ssim(real_fluorescent, gen_fluorescent, data_range=1.0, channel_axis=2))
             eval_metrics['mse'].append(mse(real_fluorescent, gen_fluorescent))
+            eval_metrics['pearson'].append(np.corrcoef(real_fluorescent.flatten(), gen_fluorescent.flatten())[0][1])
 
             utils.save_full_2d_pic(gen_fluorescent[:, :, 2], os.path.join(curr_imgs_output_dir, 'gen_fluorescent.png'))
             utils.save_full_2d_pic(real_fluorescent[:, :, 2],
@@ -303,6 +309,7 @@ class Pix2Pix:
 if __name__ == '__main__':
     # Current changes   -   90x10 loss weights, leakyRelu all layers, extra gen layer, dropout on disc
 
+    epochs = 300
     batch_size = 32  # 3500 patches, ~107 batches per epoch if limit=150
     img_sample_interval_in_batches = 106
     report_sample_interval_in_batches = 106
@@ -312,7 +319,9 @@ if __name__ == '__main__':
     shuffle_batches = True
 
     gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN, nImages_to_sample=nImages_to_sample)
-    gan.train(epochs=300, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
+    gan.train(epochs=epochs, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
               report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
+    # gan.load_model()
     gan.predict_and_save()
     gan.save_model_and_progress_report()
+

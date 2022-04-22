@@ -21,8 +21,10 @@ class data_handler():
 
         # prep paths for input images
 
-        # self.org_type = "Nuclear-envelope/"
-        self.org_type = "Mitochondria"
+
+        self.org_type = "Nuclear-envelope"
+        # self.org_type = "Microtubules"
+        # self.org_type = "Mitochondria"
 
         self.input_img_array_path = os.path.join(self.org_type, 'input_images_after_data_prepare_norm')
         self.output_img_array_path = os.path.join(self.org_type, 'output_images_after_data_prepare_norm')
@@ -31,8 +33,8 @@ class data_handler():
 
     def load_prep_images(self):
         brightfield_imgs, fluorescent_imgs = self.load_images_from_memory()
-        utils.transform_dimensions(brightfield_imgs, [0, 2, 3, 1])
-        utils.transform_dimensions(fluorescent_imgs, [0, 2, 3, 1])
+        brightfield_imgs = utils.transform_dimensions(brightfield_imgs, [0, 2, 3, 1])
+        fluorescent_imgs = utils.transform_dimensions(fluorescent_imgs, [0, 2, 3, 1])
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(brightfield_imgs, fluorescent_imgs,
                                                 test_size=0.3,
                                                 random_state=3,
@@ -45,11 +47,12 @@ class data_handler():
         gc.collect()
 
     def load_images_from_memory(self):
-        arrays_in_memory = len(os.listdir(os.path.join(utils.DIRECTORY, self.org_type))) > 0
-        if arrays_in_memory:
+        org_path = os.path.join(utils.DIRECTORY,f'{self.input_img_array_path}.npy')
+        if os.path.exists(org_path):
             brightfield_imgs = utils.load_numpy_array(self.input_img_array_path + '.npy')
             fluorescent_imgs = utils.load_numpy_array(self.output_img_array_path + '.npy')
         else:
+            os.mkdir(os.path.join(utils.DIRECTORY,self.org_type))
             images_paths = data_prepare.load_paths(self.org_type + '/', limit=self.img_limit)
             brightfield_imgs, fluorescent_imgs = data_prepare.separate_data(images_paths, self.img_size)
             utils.save_numpy_array(brightfield_imgs, self.input_img_array_path)
