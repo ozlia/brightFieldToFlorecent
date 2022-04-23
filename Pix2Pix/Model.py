@@ -123,7 +123,7 @@ class Pix2Pix(Model):
 
         # Input shape
         self.data_handler = data_handler()
-        self.img_shape = self.data_handler.img_size_rev  # 128x128x6
+        self.img_shape = self.data_handler.img_size_channels_last  # 128x128x6
         self.img_rows = self.img_shape[0]
         self.img_cols = self.img_shape[1]
         self.channels = self.img_shape[2]
@@ -274,7 +274,7 @@ class Pix2Pix(Model):
 
             brightfield = np.expand_dims(self.data_handler.X_test[i], axis=0)  # for patchify process
             real_fluorescent = self.data_handler.y_test[i]
-            gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield, self.data_handler.img_size_rev)
+            gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield, self.data_handler.img_size_channels_last)
 
             # TODO might need to narrow down to only channel 2 of fluorescent
             eval_metrics['peak_snr'].append(

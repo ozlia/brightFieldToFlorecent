@@ -16,7 +16,7 @@ class data_handler():
         self.y_test = None
 
         self.img_size = (6, 128, 128)  # (z,y,x)
-        self.img_size_rev = (self.img_size[1], self.img_size[2], self.img_size[0])
+        self.img_size_channels_last = (self.img_size[1], self.img_size[2], self.img_size[0])
         self.img_limit = 150
 
         # prep paths for input images
@@ -27,7 +27,7 @@ class data_handler():
         self.input_img_array_path = os.path.join(self.org_type, 'input_images_after_data_prepare_norm')
         self.output_img_array_path = os.path.join(self.org_type, 'output_images_after_data_prepare_norm')
 
-        self.load_prep_images()
+        # self.load_prep_images()
 
     def load_prep_images(self):
         brightfield_imgs, fluorescent_imgs = self.load_images_from_memory()
@@ -38,8 +38,8 @@ class data_handler():
                                                 random_state=3,
                                                 shuffle=True)
 
-        self.X_train = utils.utils_patchify(self.X_train, self.img_size_rev, resize=True, over_lap_steps=1)
-        self.y_train = utils.utils_patchify(self.y_train, self.img_size_rev, resize=True, over_lap_steps=1)
+        self.X_train = utils.utils_patchify(self.X_train, self.img_size_channels_last, resize=True, over_lap_steps=1)
+        self.y_train = utils.utils_patchify(self.y_train, self.img_size_channels_last, resize=True, over_lap_steps=1)
 
         del brightfield_imgs, fluorescent_imgs
         gc.collect()
