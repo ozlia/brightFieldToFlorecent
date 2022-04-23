@@ -13,10 +13,9 @@ np.random.seed = seed
 
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, patches_path, batch_size, patch_size, num_patches, data_set='Train'):
-        self.patches_path = patches_path
-        self.brightfield_paths = os.listdir(os.path.join(self.patches_path, data_set, 'Brightfield'))
-        self.fluorescent_paths = os.listdir(os.path.join(self.patches_path, data_set, 'Fluorescent'))
+    def __init__(self, patches_path, batch_size, patch_size, data_set='Train'):
+        self.brightfield_paths = os.listdir(os.path.join(patches_path, data_set, 'Brightfield'))
+        self.fluorescent_paths = os.listdir(os.path.join(patches_path, data_set, 'Fluorescent'))
         self.idx_array = np.arange(start=0, stop=len(self.brightfield_paths), step=1)
         self.batch_size = batch_size
         self.patch_size = patch_size

@@ -12,7 +12,7 @@ import numpy as np
 import os
 import pandas as pd
 
-from Pix2Pix.data_handler import data_handler
+from Pix2Pix.DataHandler import data_handler
 
 
 class P2P_Discriminator():
@@ -60,6 +60,8 @@ class P2P_Discriminator():
         else:
             d_loss = 'binary_crossentropy'
         self.model.compile(loss=d_loss, optimizer=self.optimizer)
+
+
 class P2P_Generator():
     def __init__(self):
         self.filters = 64
@@ -213,7 +215,6 @@ class Pix2Pix(Model):
 
                 # if d_loss < 0.0001:  # Typically points towards vanishing gradient
                 #     raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
-
 
     def sample_images(self, epoch, batch_i):
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,
