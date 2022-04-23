@@ -45,15 +45,15 @@ class Pix2Pix:
         self.gf = 64
         self.df = 64
 
-        # self.build_model(disc_loss)
+        self.build_model()
 
         if print_summary:
             self.print_summary()
 
     def build_model(self):
-        #0.5 beta
-        self.d_optimizer = Adam(0.0002,0.5)
-        self.g_optimizer = Adam(0.0002,0.5)
+        # 0.5 beta
+        self.d_optimizer = Adam(0.0002, 0.5)
+        self.g_optimizer = Adam(0.0002, 0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -96,7 +96,7 @@ class Pix2Pix:
         def deconv2d(layer_input, skip_input, filters, f_size=4, dropout_rate=0):
             """Layers used during upsampling"""
             u = UpSampling2D(size=2)(layer_input)
-            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same',activation=LeakyReLU())(u)
+            u = Conv2D(filters, kernel_size=f_size, strides=1, padding='same', activation=LeakyReLU())(u)
             if dropout_rate:
                 u = Dropout(dropout_rate)(u)
             u = BatchNormalization(momentum=0.8)(u)
@@ -116,8 +116,8 @@ class Pix2Pix:
         d6 = conv2d(d5, self.gf * 16)
 
         # Upsampling
-        u1 = deconv2d(d6, d5, self.gf * 8,dropout_rate=0.1)
-        u2 = deconv2d(u1, d4, self.gf * 8,dropout_rate=0.1)
+        u1 = deconv2d(d6, d5, self.gf * 8, dropout_rate=0.1)
+        u2 = deconv2d(u1, d4, self.gf * 8, dropout_rate=0.1)
         u3 = deconv2d(u2, d3, self.gf * 4)
         u4 = deconv2d(u3, d2, self.gf * 2)
         u5 = deconv2d(u4, d1, self.gf)
@@ -183,18 +183,20 @@ class Pix2Pix:
                 #  Train Discriminator
                 # ---------------------
 
+
                 fake_fluorescent_batch = self.generator.predict(real_brightfield_batch)
+
 
                 # Train the discriminators (original images = real / generated = Fake)
 
                 if batch_i % 10 == 0:  # leaning towards training generator better
                     # disc_real_brightfield_batch, disc_real_fluorescent_batch = batch_generator.__next__()
                     # batch_i += 1
-                    self.discriminator.trainable = True
                     d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                                     valid)
                     d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
                                                                     fake)
+
                     d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
                 # -----------------
@@ -202,7 +204,6 @@ class Pix2Pix:
                 # -----------------
 
                 # Train the generators
-                self.discriminator.trainable = False
                 g_loss = self.combined.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
                                                       [valid, real_fluorescent_batch])
 
@@ -213,10 +214,10 @@ class Pix2Pix:
                 # If at save interval => save generated image samples
                 # if ((batch_i + 1) % sample_interval_in_batches) == 0:
                 #     self.sample_images(epoch, batch_i + 1)
-            self.sample_images(epoch,-1)
+            self.sample_images(epoch, -1)
 
-                # if d_loss < 0.0001:  # Typically points towards vanishing gradient
-                #     raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
+            # if d_loss < 0.0001:  # Typically points towards vanishing gradient
+            #     raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
 
     def sample_images(self, epoch, batch_i):
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,
@@ -231,7 +232,7 @@ class Pix2Pix:
         models_root_dir = os.path.join(target_path, 'models')
         progress_root_dir = os.path.join(target_path, 'progress_reports')
         os.makedirs(progress_root_dir, exist_ok=True)
-        os.makedirs(models_root_dir,exist_ok=True)
+        os.makedirs(models_root_dir, exist_ok=True)
 
         save_model(model=self.combined, filepath=os.path.join(models_root_dir, 'combined_component'))
         save_model(model=self.generator, filepath=os.path.join(models_root_dir, 'generator_model'))
@@ -246,7 +247,7 @@ class Pix2Pix:
             target_path = os.path.join(utils.DIRECTORY, self.data_handler.org_type, 'models')
         origin_dir = os.getcwd()
         os.chdir(target_path)
-        self.generator = load_model('generator_model',compile=False)
+        self.generator = load_model('generator_model', compile=False)
         if transfer_learning:
             self.discriminator = load_model('discriminator_model')
             self.discriminator.compile(loss=self.disc_loss, optimizer=self.d_optimizer)
@@ -270,7 +271,7 @@ class Pix2Pix:
     def predict_and_save(self):
         root_dir = os.path.join(utils.DIRECTORY, self.data_handler.org_type)
         preds_dir_name = 'predicted_images'
-        eval_metrics: dict = {k: [] for k in ['peak_snr', 'ssim', 'mse','pearson']}
+        eval_metrics: dict = {k: [] for k in ['peak_snr', 'ssim', 'mse', 'pearson']}
         for i in range(len(self.data_handler.X_test)):
             curr_imgs_output_dir = os.path.join(self.data_handler.org_type, preds_dir_name, str(i))
             os.makedirs(name=os.path.join(utils.DIRECTORY, curr_imgs_output_dir),
@@ -319,9 +320,9 @@ if __name__ == '__main__':
     shuffle_batches = True
 
     gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN, nImages_to_sample=nImages_to_sample)
-    gan.train(epochs=epochs, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
+    gan.train(epochs=epochs, batch_size_in_patches=batch_size,
+              sample_interval_in_batches=img_sample_interval_in_batches,
               report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
     # gan.load_model()
     gan.predict_and_save()
     gan.save_model_and_progress_report()
-
