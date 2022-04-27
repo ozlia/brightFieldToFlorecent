@@ -11,8 +11,7 @@ import imageio
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
-# print("enter select directory name for this run: ")
-DIRECTORY = "/home/%s" % USER #/prediction3D_64px
+DIRECTORY = "/home/%s" % USER
 
 def set_dir(name):
     global DIRECTORY
@@ -59,8 +58,8 @@ def norm_img(img):
     # return img / img.max()
     for i in range(img.shape[0]):
         norm = cv2.normalize(img[i], None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-        img[i] = (norm/255).astype(np.float16)
-    return img
+        img[i] = (norm/255)
+    return img.astype(np.float16)
 
 
 def save_full_2d_pic(img, name):
@@ -69,13 +68,13 @@ def save_full_2d_pic(img, name):
 
 
 def save_np_as_tiff(img, time, name, model):
-    date_dir = DIRECTORY + '/' + model + '/' + time
+    date_dir = DIRECTORY + '/' + model + '_output/' + time
     if not os.path.exists(date_dir):
         os.makedirs(date_dir)
     for i in range(img.shape[2]):
         img_slice = img[:, :, i]
         imageio.imwrite("%s/%s_slice-%d_%s.tiff" % (date_dir, name, i, time), img_slice)
-        print('.')
+    print('.')
 
 
 def utils_patchify(img_lst, size, resize=False, over_lap_steps=1):
@@ -159,3 +158,8 @@ def patchify_predict_imgs(model, imgs, patch_dims):  # assuming img dims are (1,
             patch[0] = model.predict(patch)[0]
     size = imgs[0].shape
     return unpatchify(patches, size)
+
+
+def reset_dir():
+    global DIRECTORY
+    DIRECTORY = "/home/%s" % USER #/prediction3D_64px

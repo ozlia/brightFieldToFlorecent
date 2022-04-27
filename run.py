@@ -51,16 +51,17 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
 
     # Free up RAM in case the model definition cells were run multiple times
     KB.clear_session()
+
     print("init model")
     model = create_model(model_name, img_size_rev=img_size_rev, epochs=epochs, batch_size=batch_size)
     print("training model")
     train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
                                                         shuffle=True)
-    # model.train(train_x, train_y, val_set=0.1, model_dir=dir)
+    model.train(train_x, train_y, val_set=0.1, model_dir=dir)
     stop = datetime.now()
     print('Done Train, Time: ', stop - start)
 
-    model.load_model(model_dir="/Unet_Mitochondria_11-04-2022_19-07/")
+    # model.load_model(model_dir="/Unet_Mitochondria_11-04-2022_19-07/")
 
     print("Generate new pic")
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
@@ -74,7 +75,7 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
     print("... All tiffs saved !!")
     stop = datetime.now()
     print('Done All, Time: ', stop - start)
-
+    utils.reset_dir()
 
 # interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
 
@@ -135,6 +136,7 @@ def organelle_list():
         print(', '.join(all_org[i:i + 3]))
 
 
+
 def create_model(name: str, img_size_rev, epochs, batch_size):
     name = name.lower()
     case = {
@@ -165,10 +167,35 @@ def parse_command_line():
     run(model_name=args.model_type, epochs=args.epochs, batch_size=args.batch_size, dir=args.dir,
         read_img=args.read_img, org_type=args.org_type[0], img_read_limit=args.read_limit)
 
+def run_all_orgs():
+
+    best_orgs = ["Mitochondria", "Endoplasmic-reticulum", "Nuclear-envelope", "Actin-filaments", "Microtubules"]
+    selected_model = "img2img"
+    start_all = datetime.now()
+
+    for organelle in best_orgs:
+
+        working_org = "----- Working on organelle: %s -----" % organelle
+        print(len(working_org) * "-")
+        print(working_org)
+        print(len(working_org) * "-")
+
+        run(model_name=selected_model, epochs=1000, batch_size=32, dir="%s_%s" % (selected_model, organelle),
+            read_img=False, org_type=organelle, img_read_limit=120)
+
+        done_org = "***** Done organelle: %s *****" % organelle
+        print(len(done_org) * "*")
+        print(done_org)
+        print(len(done_org) * "*")
+
+    stop_all = datetime.now()
+    print('All organelles done, Total Time for this run: ', stop_all - start_all)
+
 
 if __name__ == '__main__':
     # todo please change your run params here
-    run(model_name='unet', epochs=100, batch_size=32, dir="Unet_Mitochondria", read_img=False, org_type="Mitochondria",
-        img_read_limit=200)
-    # run(dir="BasicAE_64x_2*2", epochs=200, batch_size=32)
+    selected_model = "img2img"
+    organelle = "Mitochondria"
+    run(model_name=selected_model, epochs=1000, batch_size=32, dir="%s_%s" % (selected_model, organelle),
+        read_img=False, org_type=organelle, img_read_limit=120)
     # parse_command_line()

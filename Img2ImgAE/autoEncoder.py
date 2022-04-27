@@ -15,20 +15,20 @@ class AutoEncoder(ICNN):
         stride = 2
         inputs = keras.Input(shape=input_dim)
 
-
+        filter_size = (2, 2)
         # encoder
-        x = Conv2D(32, (2, 2), strides=stride, activation=LeakyReLU(), padding="same")(inputs)
-        x = Conv2D(64, (2, 2), strides=stride, activation=LeakyReLU(), padding="same")(x)
-        x = Conv2D(128, (2, 2), strides=stride, activation=LeakyReLU(), padding="same")(x)
+        x = Conv2D(32, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(inputs)
+        x = Conv2D(64, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
+        x = Conv2D(128, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
 
         # decoder
-        x = (Conv2DTranspose(128, (2, 2), strides=stride, padding="same"))(x)
+        x = (Conv2DTranspose(128,filter_size, strides=stride, padding="same"))(x)
         x = LeakyReLU()(x)
-        x = (Conv2DTranspose(64, (2, 2), strides=stride, padding="same"))(x)
+        x = (Conv2DTranspose(64, filter_size, strides=stride, padding="same"))(x)
         x = LeakyReLU()(x)
-        x = (Conv2DTranspose(32, (2, 2), strides=stride, padding="same"))(x)
+        x = (Conv2DTranspose(32, filter_size, strides=stride, padding="same"))(x)
         x = LeakyReLU()(x)
-        outputs = Conv2DTranspose(input_dim[2], (2, 2), activation='sigmoid', padding='same', name='decoder_output')(x)
+        outputs = Conv2DTranspose(input_dim[2], filter_size, activation='sigmoid', padding='same', name='decoder_output')(x)
 
         model = keras.Model(inputs, outputs)
         model.compile(optimizer="adam", loss='mae')
