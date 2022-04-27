@@ -19,6 +19,8 @@ class ICNN(ABC):
         self.epochs = epochs
         self.model = None
         self.dir = None
+        self.loss_fn = None
+        self.optimizer = None
 
     def train(self, train_x, train_label, val_set=0.0, model_dir="/home/ozlia/basicAE/model2D/"):
         save_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
@@ -76,3 +78,34 @@ class ICNN(ABC):
             pred_func=lambda img_batch_subdiv: self.predict_patches(img_batch_subdiv)
         )
         return smooth_predicted_img
+
+    def custom_fit(self, train_x, train_label, val_set=0.0):
+        num_splits = 4
+        num_batches = int(len(train_x)/self.batch_size)
+        split_train_jump = int(len(train_x)/num_splits)
+        loss_fn = self.loss_fn
+
+        # training data on loop
+        for epoch in range(self.epochs):
+            print("\nStart of epoch %d" % (epoch,))
+            train_loss = 0
+
+            # dividing train to x number of splits at to now overload ram on train
+            for split in range(0, num_splits, split_train_jump):
+                split_x = train_x[split:split+split_train_jump]
+                split_y = train_label[split:split+split_train_jump]
+
+                # dividing into batches to quicken train time
+                for batch in range(0, num_batches, self.batch_size):
+                    batch_x = split_x[batch:batch+self.batch_size]
+                    batch_y = split_y[batch:batch+self.batch_size]
+                    train_loss += self.model.train_on_batch(batch_x, batch_y)
+            train_loss = train_loss/num_splits/num_batches
+
+            # # Log every x epochs.
+            if epoch % 1 == 0:
+                print(
+                    "Training loss at epoch %d: %.4f"
+                    % (epoch, float(train_loss))
+                )
+                print("Seen so far: %s samples" % ((epoch + 1) * self.batch_size))

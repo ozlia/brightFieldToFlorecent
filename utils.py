@@ -60,8 +60,8 @@ def norm_img(img):
     # return img / img.max()
     for i in range(img.shape[0]):
         norm = cv2.normalize(img[i], None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-        img[i] = (norm/255).astype(np.float16)
-    return img
+        img[i] = (norm / 255)
+    return img.astype(np.float16)
 
 
 def save_full_2d_pic(img, name):

@@ -5,6 +5,7 @@ from tensorflow.keras import Model
 from ICNN import ICNN
 import getpass
 import os
+from tensorflow.keras.losses import mean_squared_error
 
 
 class Unet(ICNN):
@@ -40,8 +41,9 @@ class Unet(ICNN):
         # unet model with Keras Functional API
         model = Model(inputs, outputs, name="U-Net")
 
-        opt = Adam()
-        model.compile(optimizer=opt, loss='mse')
+        self.optimizer = Adam()
+        self.loss_fn = mean_squared_error
+        model.compile(optimizer=self.optimizer, loss=self.loss_fn)
         self.model = model
         self.input_dim = input_dim
         self.batch_size = batch_size
