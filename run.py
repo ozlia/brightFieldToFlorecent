@@ -45,8 +45,10 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
 
     data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
     data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
-    patches_input = utils.utils_patchify(data_input, img_size_rev, resize=True, over_lap_steps=1)
-    patches_output = utils.utils_patchify(data_output, img_size_rev, resize=True, over_lap_steps=1)
+    train_x, test_x, train_y, test_y = train_test_split(data_input, data_output, test_size=0.1, random_state=3,
+                                                        shuffle=True)
+    patches_train_x = utils.utils_patchify(train_x, img_size_rev, resize=True, over_lap_steps=1)
+    patches_train_y = utils.utils_patchify(train_y, img_size_rev, resize=True, over_lap_steps=1)
 
     stop = datetime.now()
     print('Done Reading and Patching, Time: ', stop - start)
@@ -57,25 +59,23 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
     print("init model")
     model = create_model(model_name, img_size_rev=img_size_rev, epochs=epochs, batch_size=batch_size)
     print("training model")
-    # train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
-    #                                                     shuffle=True)
-    # model.train(train_x, train_y, val_set=0.1, model_dir=dir)
+    model.train(patches_train_x, patches_train_y, val_set=0.1, model_dir=dir)
     stop = datetime.now()
     print('Done Train, Time: ', stop - start)
 
-    model.load_model(model_dir="/img2img_Mitochondria_27-04-2022_23-27/")
+    # model.load_model(model_dir="/Unet_Actin-filaments_25-04-2022_16-53/")
 
-    calculate_pearson_for_all_images(model, data_input[:100], data_output[:100])
+    calculate_pearson_for_all_images(model, test_x[:10], test_y[:10])
 
     print("Generate new pic")
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
-    predicted_img = model.predict([data_input[0]])
-    predicted_img_smooth = model.predict_smooth([data_input[0]]) # only if you implanted smooth predict
+    predicted_img = model.predict([test_x[0]])
+    predicted_img_smooth = model.predict_smooth([test_x[0]]) # only if you implanted smooth predict
     print("Saving .........")
     utils.save_np_as_tiff(predicted_img, save_time, "predict", model_name)
     utils.save_np_as_tiff(predicted_img_smooth, save_time, "predict_smooth", model_name) # only if you implanted smooth predict
-    utils.save_np_as_tiff(data_input[0], save_time, "input", model_name)
-    utils.save_np_as_tiff(data_output[0], save_time, "ground_truth", model_name)
+    utils.save_np_as_tiff(test_x[0], save_time, "input", model_name)
+    utils.save_np_as_tiff(test_y[0], save_time, "ground_truth", model_name)
     print("... All tiffs saved !!")
     stop = datetime.now()
     print('Done All, Time: ', stop - start)
@@ -209,10 +209,10 @@ def calculate_pearson_for_all_images(model, data_input, data_output):
 
 if __name__ == '__main__':
     # todo please change your run params here
-    selected_model = "img2img"
+    selected_model = "Unet"
     organelle = "Mitochondria"
-    run(model_name=selected_model, epochs=1000, batch_size=32, dir="%s_%s" % (selected_model, organelle),
-        read_img=False, org_type=organelle, img_read_limit=120)
+    run(model_name=selected_model, epochs=100, batch_size=32, dir="%s_%s" % (selected_model, organelle),
+        read_img=False, org_type=organelle, img_read_limit=300)
     # parse_command_line()
 
     # run_all_orgs()
