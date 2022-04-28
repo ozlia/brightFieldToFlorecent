@@ -1,5 +1,7 @@
 import data_prepare
 from sklearn.model_selection import train_test_split
+import numpy as np
+import metrics.metrics
 import utils
 from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
 from Img2ImgAE.autoEncoder import AutoEncoder
@@ -55,13 +57,15 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
     print("init model")
     model = create_model(model_name, img_size_rev=img_size_rev, epochs=epochs, batch_size=batch_size)
     print("training model")
-    train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
-                                                        shuffle=True)
-    model.train(train_x, train_y, val_set=0.1, model_dir=dir)
+    # train_x, test_x, train_y, test_y = train_test_split(patches_input, patches_output, test_size=0.1, random_state=3,
+    #                                                     shuffle=True)
+    # model.train(train_x, train_y, val_set=0.1, model_dir=dir)
     stop = datetime.now()
     print('Done Train, Time: ', stop - start)
 
-    # model.load_model(model_dir="/Unet_Mitochondria_11-04-2022_19-07/")
+    model.load_model(model_dir="/img2img_Mitochondria_27-04-2022_23-27/")
+
+    calculate_pearson_for_all_images(model, data_input[:100], data_output[:100])
 
     print("Generate new pic")
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
@@ -180,8 +184,8 @@ def run_all_orgs():
         print(working_org)
         print(len(working_org) * "-")
 
-        run(model_name=selected_model, epochs=1000, batch_size=32, dir="%s_%s" % (selected_model, organelle),
-            read_img=False, org_type=organelle, img_read_limit=120)
+        run(model_name=selected_model, epochs=100, batch_size=32, dir="%s_%s" % (selected_model, organelle),
+            read_img=False, org_type=organelle, img_read_limit=250)
 
         done_org = "***** Done organelle: %s *****" % organelle
         print(len(done_org) * "*")
@@ -192,6 +196,17 @@ def run_all_orgs():
     print('All organelles done, Total Time for this run: ', stop_all - start_all)
 
 
+def calculate_pearson_for_all_images(model, data_input, data_output):
+
+    print("Numpy corr : -----------")
+    all_pearson = []
+    for i, img in enumerate(data_input):
+        predicted_img = model.predict([img])
+        all_pearson.append(metrics.metrics.np_corr(data_output[i], predicted_img)[0][1])
+
+    print("total predicted: %d, mean : %f , std: %f" % ( len(all_pearson), np.mean(all_pearson) , np.std(all_pearson) ) )
+    print("------------------------------------------------------")
+
 if __name__ == '__main__':
     # todo please change your run params here
     selected_model = "img2img"
@@ -199,3 +214,5 @@ if __name__ == '__main__':
     run(model_name=selected_model, epochs=1000, batch_size=32, dir="%s_%s" % (selected_model, organelle),
         read_img=False, org_type=organelle, img_read_limit=120)
     # parse_command_line()
+
+    # run_all_orgs()

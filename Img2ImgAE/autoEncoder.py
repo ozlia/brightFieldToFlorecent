@@ -12,23 +12,47 @@ import os
 class AutoEncoder(ICNN):
 
     def __init__(self, input_dim=(128, 128, 6), batch_size=32, epochs=1000):
-        stride = 2
+
         inputs = keras.Input(shape=input_dim)
 
-        filter_size = (2, 2)
+        self.stride = 2
+        self.filter_size = (2, 2)
+        self.depth_start = 32
         # encoder
-        x = Conv2D(32, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(inputs)
-        x = Conv2D(64, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
-        x = Conv2D(128, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
+
+        # x = self.encoder_layer(inputs, depth_start, filter_size, stride)
+        x = Conv2D(self.depth_start, self.filter_size, activation="relu", padding="same")(inputs)
+        x = Conv2D(self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
+
+        x = Conv2D(2*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
+        x = Conv2D(2*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
+
+        x = Conv2D(4*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
+        x = Conv2D(4*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
+
+        # x = Conv2D(8*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
+        # x = Conv2D(8*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
+
 
         # decoder
-        x = (Conv2DTranspose(128,filter_size, strides=stride, padding="same"))(x)
-        x = LeakyReLU()(x)
-        x = (Conv2DTranspose(64, filter_size, strides=stride, padding="same"))(x)
-        x = LeakyReLU()(x)
-        x = (Conv2DTranspose(32, filter_size, strides=stride, padding="same"))(x)
-        x = LeakyReLU()(x)
-        outputs = Conv2DTranspose(input_dim[2], filter_size, activation='sigmoid', padding='same', name='decoder_output')(x)
+        # x = (Conv2DTranspose(8*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        # x = (Conv2DTranspose(8*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        x = (Conv2DTranspose(4*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        x = (Conv2DTranspose(4*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        x = (Conv2DTranspose(2*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        x = (Conv2DTranspose(2*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        x = (Conv2DTranspose(self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        x = (Conv2DTranspose(self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+
+        outputs = Conv2DTranspose(input_dim[2], self.filter_size, activation='sigmoid', padding='same', name='decoder_output')(x)
 
         model = keras.Model(inputs, outputs)
         model.compile(optimizer="adam", loss='mae')
@@ -92,3 +116,14 @@ class AutoEncoder(ICNN):
         """
         path = self.dir + model_dir
         self.model = keras.models.load_model(path)
+
+
+    def encoder_layer(self, x, depth):
+        x = Conv2D(depth, self.filter_size, activation="relu", padding="same")(x)
+        return Conv2D(depth, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
+
+    def decoder_layer(self, x, depth):
+        x = (Conv2DTranspose(depth, self.filter_size, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
+        return (Conv2DTranspose(depth, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        # x = LeakyReLU()(x)
