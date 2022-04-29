@@ -21,25 +21,20 @@ from DataGeneration import DataGenPreparation, DataGenerator
 class P2P_Discriminator():
     def __init__(self, batch_size, patch_size_channels_last, use_patches=False):
         self.input_size_channels_last = patch_size_channels_last
+        self.optimizer = Adam(0.0002, 0.5)
 
         # self.channels used to be 1
         if use_patches:  # Calculate patch size of D (PatchGAN)
             patchGAN_patch_size = 2 ** 4
             self.patch_size = int(self.input_size_channels_last / patchGAN_patch_size)
             patch_arr_size = (batch_size, self.patch_size, self.patch_size, self.input_size_channels_last[2])
-            self.loss = 'mse'
+            self.loss_fn = tf.keras.losses.mean_squared_error #'mse'
         else:
             patch_arr_size = (batch_size, self.input_size_channels_last[2])
-            self.loss = 'binary_crossentropy'
-
-        self.valid_arr = np.ones(patch_arr_size)
-        self.fake_arr = np.zeros(patch_arr_size)
+            self.loss_fn = tf.keras.losses.binary_crossentropy # 'binary_crossentropy'
 
         self.n_filters = 64
         self.build_model(use_patches)
-
-        self.optimizer = Adam(0.0002, 0.5)
-        self.model.compile(loss=self.loss, optimizer=self.optimizer)
 
     def add_conv_layer(self, layer_input, filters, f_size=4, bn=True, dropout_rate=0):
         """Discriminator layer"""
@@ -81,7 +76,7 @@ class P2P_Generator():
         self.input_size = patch_size_channels_last
         self.build_model()
         self.optimizer = Adam(0.0002, 0.5)
-        self.model.compile(loss='mae', optimizer=self.optimizer)
+        self.loss_fn = tf.keras.losses.mean_absolute_error
 
     def add_conv_layer(self, layer_input, filters, f_size=4, bn=True):
         """Layers used during downsampling"""
@@ -138,57 +133,89 @@ class Pix2Pix(Model):
         if print_summary:
             self.print_summary()
 
-        self.build_model()
+        self.full_gen = P2P_Generator(self.patch_size_channels_last)
+        self.full_disc = P2P_Discriminator(batch_size=self.batch_size,patch_size_channels_last=patch_size_channels_last,use_patches=utilize_patchGAN)
+        self.generator = self.full_gen.model
+        self.discriminator = self.full_disc.model
 
-    def build_model(self):
+        self.compile()
 
-        self.discriminator = P2P_Discriminator(batch_size=self.batch_size,
-                                               patch_size_channels_last=self.patch_size_channels_last,
-                                               use_patches=self.utilize_patchGAN).model
-        full_generator = P2P_Generator(patch_size_channels_last=self.patch_size_channels_last)
-        self.generator = full_generator.model
+    def compile(self,
+                optimizer='rmsprop',
+                loss=None,
+                metrics=None,
+                loss_weights=None,
+                sample_weight_mode=None,
+                weighted_metrics=None,
+                **kwargs):
 
-        # Input images and their conditioning images
-        real_fluorescent = Input(shape=self.patch_size_channels_last)
-        real_brightfield = Input(shape=self.patch_size_channels_last)
+        super(Pix2Pix, self).compile()
+        self.loss_weights = [0.5, 0.5]
 
-        # By conditioning on B generate a fake version of A
-        fake_fluorescent = self.generator(real_brightfield)
+        self.discriminator.compile(loss=self.full_disc.loss_fn, optimizer=self.full_disc.optimizer)
+        self.generator.compile(loss=self.full_gen.loss_fn, optimizer=self.full_gen.optimizer)
 
-        # For the combined model we will only train the generator
-        self.discriminator.trainable = False
-
-        # Discriminators determines validity of translated images / condition pairs
-        valid = self.discriminator([fake_fluorescent, real_brightfield])
-
-        self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=[self.discriminator.loss, 'mae'], loss_weights=[10, 90],
-                              optimizer=full_generator.optimizer)
-
-        self.compile(loss='mae') #because code wont run otherwise, this is not necessary
+    def call(self, inputs):
+        return self.generator(inputs)
 
     def train_step(self, patches):
         brightfield_batch, real_fluorescent_batch = patches
 
-        fake_fluorescent_batch = self.generator.predict(brightfield_batch)
+        # Decode them to fake images
+        generated_images = self.generator(brightfield_batch)
+
+        # Combine them with real images
+        combined_images_fake = tf.concat([generated_images, brightfield_batch], axis=0)
+        combined_images_real = tf.concat([real_fluorescent_batch, brightfield_batch], axis=0)
+
+        # Assemble labels discriminating real from fake images
+        # Add random noise to the labels - important trick!
+        labels_shape = (self.batch_size, 1)
+        valid_labels = tf.ones(labels_shape) + 0.05 * tf.random.uniform(tf.shape(labels_shape))
+        fake_labels = tf.zeroes(labels_shape) + 0.05 * tf.random.uniform(tf.shape(labels_shape))
 
         if self.num_total_batches % 10 == 0:  # leaning towards training generator better
+            # Train the discriminator
+            with tf.GradientTape() as tape:
+                real_predictions = self.discriminator(combined_images_real)
+                d_loss_valid = self.loss_fn(valid_labels, real_predictions)
+            grads = tape.gradient(d_loss_valid, self.discriminator.trainable_weights)
+            self.d_optimizer.apply_gradients(
+                zip(grads, self.discriminator.trainable_weights)
+            )
 
-            d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, brightfield_batch],
-                                                            self.discriminator.valid_arr)
-            d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, brightfield_batch],
-                                                            self.discriminator.fake_arr)
-            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+            with tf.GradientTape() as tape:
+                fake_predictions = self.discriminator(combined_images_fake)
+                d_loss_fake = self.loss_fn(fake_labels, fake_predictions)
+            grads = tape.gradient(d_loss_fake, self.discriminator.trainable_weights)
+            self.d_optimizer.apply_gradients(
+                zip(grads, self.discriminator.trainable_weights)
+            )
+
+            d_loss = 0.5 * np.add(d_loss_valid, d_loss_fake)
         else:
             d_loss = (0, 0)
 
-        g_loss = self.combined.train_on_batch([real_fluorescent_batch, brightfield_batch],
-                                              [self.discriminator.valid_arr, real_fluorescent_batch])
+        # Assemble labels that say "all real images"
+        misleading_labels = tf.zeros((batch_size, 1))
 
-        return {
-            "Generator Loss": g_loss,
-            "Disc Loss": d_loss,
-        }
+        # Train the generator
+        # Do not update the discriminator weights
+
+        with tf.GradientTape() as tape:
+            fake_predictions = self.discriminator(combined_images_fake)  # again after training
+            # Loss w.r.t ground truth
+            gen_gt_loss = self.full_gen.loss_fn(real_fluorescent_batch, generated_images)
+            # Loss from discriminator's judgement
+            gen_vs_disc_loss = self.loss_weights[1] * self.full_gen.loss_fn(generated_images, fake_predictions)
+
+            g_loss = self.loss_weights[0] * gen_gt_loss + self.loss_weights[1] * gen_vs_disc_loss
+
+        grads = tape.gradient(g_loss, self.generator.trainable_weights)
+        self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
+
+        del tape
+        return {"d_loss": d_loss, "g_loss": g_loss}
 
     def sample_images(self, epoch, batch_i):
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,
@@ -324,8 +351,8 @@ if __name__ == '__main__':
     #     CSVLogger('log.csv' , append=True, separator=';')
     # ]
 
-    #TODO: Currently only one img in test set because the second image had 4 channels and wasn't processed
+    # TODO: Currently only one img in test set because the second image had 4 channels and wasn't processed
     gan.fit(train_data_gen, validation_data=validation_data_gen, epochs=epochs, shuffle=True,
-                      verbose=1)
+            verbose=1)
     # gan.predict_and_save()
     # gan.save_model_and_progress_report()

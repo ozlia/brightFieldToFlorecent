@@ -36,13 +36,13 @@ class DataGenerator(keras.utils.Sequence):
             curr_fluorescent = np.load(self.fluorescent_paths[img_idx])
             brightfield_batch.append(curr_brightfield)
             fluorescent_batch.append(curr_fluorescent)
-            # np.dstack(fluorescent_batch, curr_fluorescent)
 
         if self.data_set == 'Train':
             brightfield_batch = self.augment_images(brightfield_batch)
             fluorescent_batch = self.augment_images(fluorescent_batch)
-
-        return np.array(brightfield_batch), np.array(fluorescent_batch)
+        brightfield_batch = np.squeeze(np.array(brightfield_batch),axis=1)
+        fluorescent_batch = np.squeeze(np.array(fluorescent_batch),axis=1)
+        return brightfield_batch,fluorescent_batch
 
     def on_epoch_end(self):
         self.idx_array = np.arange(start=0, stop=len(self.brightfield_paths), step=1)

@@ -32,7 +32,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.images_mapping_fpath = self.get_mapping_fpath()
         self.patches_meta_data_fpath = self.get_meta_data_fpath()
 
-        # self.prepare_images_in_disc_save_only()
+        self.prepare_images_in_disc_save_only()
         # self.prepare_images_in_disc(resplit)  # flexible incase we don't want to initiate this with DataGeneratorPrep
 
     def prepare_images_in_disc_save_only(self):
@@ -158,10 +158,11 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         for data_set_name, data_set_paths in name_to_dataset_img_paths.items():
             imgs_data_set += [data_set_name] * len(data_set_paths)
             # if too many imgs to read at once
-            for i in range(0, len(data_set_paths),self.imgs_bulk_size):
-                curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
-            # for i in range(0, 1, 1):
-            #     curr_data_set_paths = data_set_paths[0:2]
+            # for i in range(0, len(data_set_paths),self.imgs_bulk_size):
+            #     curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
+            for i in range(0, 1, 1):
+                curr_data_set_paths = data_set_paths[0:2]
+
                 data_sets = data_prepare.separate_data(curr_data_set_paths, self.img_size_channels_first)
                 brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
                                                     data_sets)  # costly operation
@@ -192,7 +193,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         patch_path = self.build_img_path(self.patches_dir_path, data_set, format)
         for row in patches:
             for i, patch in enumerate(row):
-                utils.save_numpy_array(array=img, path=path.join(patch_path, f'{img_name}_{i}'))
+                utils.save_numpy_array(array=patch, path=path.join(patch_path, f'{img_name}_{i}'))
 
     def save_patches_meta_data(self):
         num_patches_in_img = (self.img_size_channels_first[1] // self.patch_size_channels_last[0]) * (
