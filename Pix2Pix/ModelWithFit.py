@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 import utils
+import tensorflow as tf
 from tensorflow.keras.callbacks import CSVLogger
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
@@ -323,6 +324,7 @@ if __name__ == '__main__':
     #     CSVLogger('log.csv' , append=True, separator=';')
     # ]
 
+    #TODO: Currently only one img in test set because the second image had 4 channels and wasn't processed
     gan.fit(train_data_gen, validation_data=validation_data_gen, epochs=epochs, shuffle=True,
                       verbose=1)
     # gan.predict_and_save()

@@ -1,6 +1,6 @@
 import json
 import shutil
-from os import path, makedirs, listdir, chdir, getcwd,walk
+from os import path, makedirs, listdir, chdir, getcwd, walk
 import pandas as pd
 from keras_preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
@@ -10,7 +10,7 @@ import data_prepare
 
 
 class DataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation
-    def __init__(self,img_size_channels_last,patch_size_channels_last, org_type, resplit=False,
+    def __init__(self, img_size_channels_last, patch_size_channels_last, org_type, resplit=False,
                  validation_size=0.0, test_size=0.3):
         assert type(validation_size) is float and type(test_size) is float, 'data set sizes must be of type float'
         assert 0.0 < test_size <= 1, 'You must determine a valid test set size between 0 and 1'
@@ -20,11 +20,10 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.val_size = validation_size
         self.test_size = test_size
 
-        self.img_size_channels_first = img_size_channels_last[::-1 ]
+        self.img_size_channels_first = img_size_channels_last[::-1]
         self.patch_size_channels_last = patch_size_channels_last
 
-        # self.imgs_bulk_size = 150
-        self.imgs_bulk_size = 1
+        self.imgs_bulk_size = 150
         self.seed = 42
 
         self.patches_dir_path = path.join(self.org_type, 'Patches')
@@ -33,13 +32,12 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.images_mapping_fpath = self.get_mapping_fpath()
         self.patches_meta_data_fpath = self.get_meta_data_fpath()
 
-        self.prepare_images_in_disc_save_only()
+        # self.prepare_images_in_disc_save_only()
         # self.prepare_images_in_disc(resplit)  # flexible incase we don't want to initiate this with DataGeneratorPrep
 
-
     def prepare_images_in_disc_save_only(self):
-        if path.exists(utils.get_dir(self.images_dir_path)):
-            return
+        # if path.exists(utils.get_dir(self.images_dir_path)):
+        #     return
         self.prep_dirs()
         self.save_images()
 
@@ -73,7 +71,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         if user_meta_data['Patch_Size'] == self.patch_size_channels_last:
             print(f'copying images and patches from {user}')
             shutil.copytree(origin_path, utils.DIRECTORY)
-        else:  # Save with new patch_size. Might change to "save patches" to "adapt patch size" later
+        else:  # TODO: Save with new patch_size. Might change to "save patches" to "adapt patch size" later
             print(f'copying images from {user}')
             shutil.copytree(origin_images_path, dest_images_path)  # copy images
 
@@ -94,6 +92,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
             f'images copied and patches {"copied" if user_meta_data["matches_patches"] else "generated"} for local user.')
 
     def train_val_test_split(self, base_names=False):  # returns paths for assaf storage
+        name_to_dataset_img_paths = {}
 
         imgs_paths = data_prepare.load_paths_v2(self.org_type)
 
@@ -104,32 +103,35 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         X_train, X_test = train_test_split(imgs_paths, test_size=self.test_size,
                                            random_state=self.seed,
                                            shuffle=True)
+        name_to_dataset_img_paths['Test'] = X_test
         if self.val_size > 0:
             X_train, X_val = train_test_split(X_train, test_size=self.val_size, random_state=self.seed)
-        else:
-            X_val = []
+            name_to_dataset_img_paths['Validation'] = X_test
 
-        return X_train, X_val, X_test
+        name_to_dataset_img_paths['Train'] = X_train
+
+        return name_to_dataset_img_paths
 
     def resplit_images(self, user_meta_data):
 
         img_name_to_location = pd.read_csv(self.images_mapping_fpath)
         patches_meta_data = pd.read_csv(self.patches_meta_data_fpath)
+
+        name_to_dataset_img_paths = self.train_val_test_split(base_names=True)
+        name_to_dataset_img_paths = {dataset_name: set(l_img_paths) for dataset_name, l_img_paths in
+                                     name_to_dataset_img_paths.items()}
         new_data_set_mapping = []
 
-        X_train, X_val, X_test = (set(data_set) for data_set in self.train_val_test_split(base_names=True))
-
-        for i, row in enumerate(img_name_to_location.iterrows()):
+        for row in img_name_to_location.iterrows():
             # find new dataset based on split
-            if row['Name'] in X_train:
-                new_data_set_mapping.append('Train')
-            elif row['Name'] in X_val:
-                new_data_set_mapping.append('Validation')
-            elif row['Name'] in X_test:
-                new_data_set_mapping.append('Test')
-            else:
-                raise ValueError(
-                    f"Incorrect mapping - couldn't find image {row['Name']} in any data set")
+            for dataset_name in name_to_dataset_img_paths.keys():
+                if row[1]['Name'] in name_to_dataset_img_paths[dataset_name]:
+                    new_data_set_mapping.append(dataset_name)
+                    break
+
+            assert len(img_name_to_location) == len(
+                new_data_set_mapping), f"An image from a dataset doesn't appear in both mappings"
+
             for data_format in ['Brightfield', 'Fluorescent']:
                 # move images
                 prev_img_path = self.build_img_path(base_path=self.images_dir_path, data_set=new_data_set_mapping[i],
@@ -152,23 +154,26 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
     def save_images(self):  # TODO add os.makedirs
         imgs_names = []
         imgs_data_set = []
-        X_train, X_val, X_test = self.train_val_test_split()
-        for data_set_paths, data_set_name in zip([X_train, X_val, X_test], ['Train', 'Validation', 'Test']):
+        name_to_dataset_img_paths = self.train_val_test_split()
+        for data_set_name, data_set_paths in name_to_dataset_img_paths.items():
             imgs_data_set += [data_set_name] * len(data_set_paths)
             # if too many imgs to read at once
             for i in range(0, len(data_set_paths),self.imgs_bulk_size):
                 curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
+            # for i in range(0, 1, 1):
+            #     curr_data_set_paths = data_set_paths[0:2]
                 data_sets = data_prepare.separate_data(curr_data_set_paths, self.img_size_channels_first)
                 brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
-                                                    data_sets) #costly operation
+                                                    data_sets)  # costly operation
 
-
-                for i, (bf_img, flr_img) in enumerate(zip(brightfield_arr, fluorescent_arr)):  # TODO test this
+                for i, (bf_img, flr_img) in enumerate(zip(brightfield_arr, fluorescent_arr)):
                     curr_img_name = path.basename(data_set_paths[i]).split('.')[0]
                     imgs_names.append(curr_img_name)
+                    print(f'Saving brightfield image and patches number {i} in {data_set_name} set')
                     self.save_img_and_patches(img=bf_img, img_name=imgs_names[i], format='Brightfield',
                                               data_set=data_set_name)
-                    self.save_img_and_patches(img=flr_img, name=imgs_names[i], format='Fluorescent',
+                    print(f'Saving floro image and patches number {i} in {data_set_name} set')
+                    self.save_img_and_patches(img=flr_img, img_name=imgs_names[i], format='Fluorescent',
                                               data_set=data_set_name)
         self.save_patches_meta_data()
         img_name_to_dataset = pd.DataFrame(data=dict(Name=imgs_names, Data_Set=imgs_data_set))
@@ -176,7 +181,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
 
     def save_img_and_patches(self, img, img_name, format, data_set):
         img_path = self.build_img_path(self.images_dir_path, data_set, format)
-        utils.save_numpy_array(array=img,path=path.join(img_path, img_name))
+        utils.save_numpy_array(array=img, path=path.join(img_path, img_name))
         self.save_patches(img=img, img_name=img_name, format=format, data_set=data_set)
 
     def save_patches(self, img, img_name, format, data_set):
@@ -189,9 +194,9 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
             for i, patch in enumerate(row):
                 utils.save_numpy_array(array=img, path=path.join(patch_path, f'{img_name}_{i}'))
 
-
     def save_patches_meta_data(self):
-        num_patches_in_img = (self.img_size_channels_first[1] // self.patch_size_channels_last[0]) * (self.img_size_channels_first[2] // self.patch_size_channels_last[1])
+        num_patches_in_img = (self.img_size_channels_first[1] // self.patch_size_channels_last[0]) * (
+                    self.img_size_channels_first[2] // self.patch_size_channels_last[1])
         total_num_patches = num_patches_in_img * len(listdir(utils.get_dir(self.images_dir_path)))
         patches_meta_deta = dict(Number_Of_Patches=total_num_patches, Patches_In_Image=num_patches_in_img,
                                  Patch_Size=self.patch_size_channels_last)
@@ -211,7 +216,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
     def prep_dirs(self):
         origin_wd = getcwd()
         root_dir = utils.DIRECTORY
-        makedirs(root_dir,exist_ok=True)
+        makedirs(root_dir, exist_ok=True)
         chdir(root_dir)
 
         makedirs(self.meta_dir_path, exist_ok=True)
