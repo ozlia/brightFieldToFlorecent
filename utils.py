@@ -8,6 +8,7 @@ from patchify import patchify, unpatchify
 from sklearn.preprocessing import normalize
 from tensorflow import transpose
 import imageio
+from metrics.metrics import np_corr
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
@@ -163,3 +164,17 @@ def patchify_predict_imgs(model, imgs, patch_dims):  # assuming img dims are (1,
 def reset_dir():
     global DIRECTORY
     DIRECTORY = "/home/%s" % USER #/prediction3D_64px
+
+
+def calculate_pearson_for_all_images(model, data_input, data_output, time, model_name, organelle):
+
+    print("Numpy corr : -----------")
+    all_pearson = []
+    for i, img in enumerate(data_input):
+        predicted_img = model.predict([img])
+        all_pearson.append(np_corr(data_output[i], predicted_img)[0][1])
+    file = open("%s/Pearson_correlation_%s.txt" % (DIRECTORY, time), "w+")
+    results = "total predicted: %d, mean : %f , std: %f" % ( len(all_pearson), np.mean(all_pearson) , np.std(all_pearson) )
+    file.writelines([time, "\n", model_name, "\n", organelle[:-1], "\n", results])
+    print(results)
+    print("------------------------------------------------------")

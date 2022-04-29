@@ -23,7 +23,7 @@ def load_paths(org_type, limit=1):
     # files, x_pixels, y_pixels, color
 
 
-def separate_data(fovs, img_size):
+def separate_data(fovs, img_size, multiply_img_z=1):
     bright_field = []
     fluorescent = []
     z, y, x = img_size
@@ -36,14 +36,16 @@ def separate_data(fovs, img_size):
         if n_channels <= 6:
             continue
         mid_slice = np.int(0.5 * img.shape[1])
-        upper_slice = int(mid_slice + z / 2)
-        under_slice = int(mid_slice - z / 2)
-        img_3d = img[n_channels - 1, under_slice:upper_slice, :, :]  # [bright_field, slice_z, all 2D image]
+        under_slice = int(mid_slice - z * multiply_img_z / 2)
+        # upper_slice = under_slice + z
+        for i in range(multiply_img_z):
+            img_3d = img[n_channels - 1, under_slice:under_slice + z, :, :]  # [bright_field, slice_z, all 2D image]
 
-        bright_field.append(image3d_prep(img_3d, ImgType.BRIGHT_FIELD))
+            bright_field.append(image3d_prep(img_3d, ImgType.BRIGHT_FIELD))
 
-        img_3d = img[n_channels - 4, under_slice:upper_slice, :, :]
-        fluorescent.append(image3d_prep(img_3d, ImgType.FLUORESCENT))
+            img_3d = img[n_channels - 4, under_slice:under_slice + z, :, :]
+            fluorescent.append(image3d_prep(img_3d, ImgType.FLUORESCENT))
+            under_slice += z
 
     bright_field_array = np.array(bright_field)
     fluorescent_array = np.array(fluorescent)
@@ -52,7 +54,7 @@ def separate_data(fovs, img_size):
 
 def image3d_prep(img_3d, type):
     z, y, x = img_3d.shape
-    img_3d_padded = np.zeros((6, 640, 896))
+    img_3d_padded = np.zeros((z, 640, 896))
     for i in range(z):
         img_3d_padded[i] = cv2.resize(img_3d[i], (896, 640), interpolation=cv2.INTER_AREA)
     img_3d_norm = utils.norm_img(img_3d_padded)

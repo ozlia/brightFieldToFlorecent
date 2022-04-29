@@ -21,7 +21,7 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 print("reading images")
 
 # run only once - if you change the amount of tiffs you need to run it again
-# data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=limit), img_size)
+# data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=limit), IMG_SIZE)
 # utils.save_numpy_array(data_input, "input_images_after_data_prepare_norm")
 # utils.save_numpy_array(data_output, "output_images_after_data_prepare_norm")
 

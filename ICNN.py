@@ -19,6 +19,7 @@ class ICNN(ABC):
         self.epochs = epochs
         self.model = None
         self.dir = None
+        self.saved_model_dir = None
 
     def train(self, train_x, train_label, val_set=0.0, model_dir="/home/ozlia/basicAE/model2D/"):
         save_time = datetime.now().strftime("%d-%m-%Y_%H-%M")

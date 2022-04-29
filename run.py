@@ -18,23 +18,21 @@ from UNET.Unet import Unet
 # interpreter_path_omer  = /home/omertag/.conda/envs/my_env/bin/python
 
 METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
-img_size = (6, 64, 64)  # (x,y,z)
+IMG_SIZE = (3, 64, 64)  # (x,y,z)
 
 
-def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=None, img_read_limit=150):
+def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=None, img_read_limit=150, load_model_date=None, over_lap=1, multiply_img_z=1):
     utils.set_dir(dir)
-    img_size_rev = (img_size[1], img_size[2], img_size[0])
+    img_size_rev = (IMG_SIZE[1], IMG_SIZE[2], IMG_SIZE[0])
     start = datetime.now()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print("reading images")
 
-    if org_type:
+    if read_img and org_type:
         if not org_type[-1] == "/":
             org_type = org_type + "/"
-
-    if read_img:
         data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=img_read_limit),
-                                                             img_size)
+                                                             IMG_SIZE, multiply_img_z=multiply_img_z)
         utils.save_numpy_array(data_input, "input_images_after_data_prepare_norm")
         utils.save_numpy_array(data_output, "output_images_after_data_prepare_norm")
         print("Saved successfully numpy array at %s" % utils.DIRECTORY)
@@ -45,10 +43,11 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
 
     data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
     data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
+
     train_x, test_x, train_y, test_y = train_test_split(data_input, data_output, test_size=0.1, random_state=3,
                                                         shuffle=True)
-    patches_train_x = utils.utils_patchify(train_x, img_size_rev, resize=True, over_lap_steps=1)
-    patches_train_y = utils.utils_patchify(train_y, img_size_rev, resize=True, over_lap_steps=1)
+    patches_train_x = utils.utils_patchify(train_x, img_size_rev, resize=True, over_lap_steps=over_lap)
+    patches_train_y = utils.utils_patchify(train_y, img_size_rev, resize=True, over_lap_steps=over_lap)
 
     stop = datetime.now()
     print('Done Reading and Patching, Time: ', stop - start)
@@ -58,17 +57,23 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
 
     print("init model")
     model = create_model(model_name, img_size_rev=img_size_rev, epochs=epochs, batch_size=batch_size)
-    print("training model")
-    model.train(patches_train_x, patches_train_y, val_set=0.1, model_dir=dir)
-    stop = datetime.now()
-    print('Done Train, Time: ', stop - start)
 
-    # model.load_model(model_dir="/Unet_Actin-filaments_25-04-2022_16-53/")
+    if not load_model_date:
+        print("training model")
+        model.train(patches_train_x, patches_train_y, val_set=0.1, model_dir=dir)
+        stop = datetime.now()
+        print('Done Train, Time: ', stop - start)
 
-    calculate_pearson_for_all_images(model, test_x[:10], test_y[:10])
+    else:
+        print("Loading model .....")
+        model.load_model(model_dir=load_model_date)
+        stop = datetime.now()
+        print('Done Load, Time: ', stop - start)
+
+    save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
+    utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100], model_name=model_name, time=save_time, organelle=org_type)
 
     print("Generate new pic")
-    save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
     predicted_img = model.predict([test_x[0]])
     predicted_img_smooth = model.predict_smooth([test_x[0]]) # only if you implanted smooth predict
     print("Saving .........")
@@ -124,7 +129,8 @@ def cmd_helper_script():
     print("Directory name?")
     dir_name = input()
 
-    run(dir=dir_name, epochs=epochs, batch_size=batch_size, read_img=read_img, org_type=org, img_read_limit=150)
+    run(dir=dir_name, model_name="img2img", epochs=epochs, batch_size=batch_size, read_img=read_img, org_type=org,
+        img_read_limit=150)
 
     # print_full(matadata_df)
     # print_full((matadata_df.head()))
@@ -168,24 +174,31 @@ def parse_command_line():
                             sorted(set(pd.read_csv(METADATA_CSV_PATH)['StructureDisplayName']))))
     parser.add_argument("-rl", "--read_limit", default=150, type=int, help='Maximum number of images to read')
     args = parser.parse_args()
-    run(model_name=args.model_type, epochs=args.epochs, batch_size=args.batch_size, dir=args.dir,
+    run(dir=args.dir, model_name=args.model_type, epochs=args.epochs, batch_size=args.batch_size,
         read_img=args.read_img, org_type=args.org_type[0], img_read_limit=args.read_limit)
 
 def run_all_orgs():
 
-    best_orgs = ["Mitochondria", "Endoplasmic-reticulum", "Nuclear-envelope", "Actin-filaments", "Microtubules"]
+    best_orgs = {"Mitochondria": None,
+                 "Endoplasmic-reticulum": None,
+                 "Nuclear-envelope": None,
+                 "Actin-filaments": None,
+                 "Microtubules": None}
+
     selected_model = "img2img"
     start_all = datetime.now()
 
-    for organelle in best_orgs:
+    for organelle, model_date in best_orgs.items():
 
         working_org = "----- Working on organelle: %s -----" % organelle
         print(len(working_org) * "-")
         print(working_org)
         print(len(working_org) * "-")
 
-        run(model_name=selected_model, epochs=100, batch_size=32, dir="%s_%s" % (selected_model, organelle),
-            read_img=False, org_type=organelle, img_read_limit=250)
+
+        model_dir = "/%s_%s_%s/" % (selected_model, organelle, model_date) if model_date else None
+        run(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=100, batch_size=32,
+            read_img=True, org_type=organelle, img_read_limit=200, load_model_date=model_dir, multiply_img_z=4)
 
         done_org = "***** Done organelle: %s *****" % organelle
         print(len(done_org) * "*")
@@ -196,23 +209,24 @@ def run_all_orgs():
     print('All organelles done, Total Time for this run: ', stop_all - start_all)
 
 
-def calculate_pearson_for_all_images(model, data_input, data_output):
-
-    print("Numpy corr : -----------")
-    all_pearson = []
-    for i, img in enumerate(data_input):
-        predicted_img = model.predict([img])
-        all_pearson.append(metrics.metrics.np_corr(data_output[i], predicted_img)[0][1])
-
-    print("total predicted: %d, mean : %f , std: %f" % ( len(all_pearson), np.mean(all_pearson) , np.std(all_pearson) ) )
-    print("------------------------------------------------------")
+# def calculate_pearson_for_all_images(model, data_input, data_output, time, model_name, organelle):
+#
+#     print("Numpy corr : -----------")
+#     all_pearson = []
+#     for i, img in enumerate(data_input):
+#         predicted_img = model.predict([img])
+#         all_pearson.append(metrics.metrics.np_corr(data_output[i], predicted_img)[0][1])
+#     file = open("%s/Pearson_correlation_%s.txt" % (utils.DIRECTORY, time) , "w+")
+#     results = "total predicted: %d, mean : %f , std: %f" % ( len(all_pearson), np.mean(all_pearson) , np.std(all_pearson) )
+#     file.writelines([time, "\n", model_name, "\n", organelle[:-1], "\n", results])
+#     print(results)
+#     print("------------------------------------------------------")
 
 if __name__ == '__main__':
     # todo please change your run params here
-    selected_model = "Unet"
+    selected_model = "img2img"
     organelle = "Mitochondria"
-    run(model_name=selected_model, epochs=100, batch_size=32, dir="%s_%s" % (selected_model, organelle),
-        read_img=False, org_type=organelle, img_read_limit=300)
-    # parse_command_line()
+    run(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=100, batch_size=32, read_img=True,
+        org_type=organelle, img_read_limit=200, multiply_img_z=4)
 
     # run_all_orgs()
