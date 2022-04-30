@@ -1,7 +1,5 @@
 import data_prepare
 from sklearn.model_selection import train_test_split
-import numpy as np
-import metrics.metrics
 import utils
 from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
 from Img2ImgAE.autoEncoder import AutoEncoder
@@ -21,7 +19,9 @@ METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
 IMG_SIZE = (3, 64, 64)  # (x,y,z)
 
 
-def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=None, img_read_limit=150, load_model_date=None, over_lap=1, multiply_img_z=1):
+def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=None, img_read_limit=150,
+        load_model_date=None, over_lap=1, multiply_img_z=1):
+
     utils.set_dir(dir)
     img_size_rev = (IMG_SIZE[1], IMG_SIZE[2], IMG_SIZE[0])
     start = datetime.now()
@@ -71,7 +71,8 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
         print('Done Load, Time: ', stop - start)
 
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
-    utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100], model_name=model_name, time=save_time, organelle=org_type)
+    utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100],
+                                           model_name=model_name, time=save_time, organelle=org_type)
 
     print("Generate new pic")
     predicted_img = model.predict([test_x[0]])
@@ -146,18 +147,34 @@ def organelle_list():
         print(', '.join(all_org[i:i + 3]))
 
 
-
 def create_model(name: str, img_size_rev, epochs, batch_size):
+    '''
+    name - Must be lower case in this function!!!
+    '''
+
     name = name.lower()
-    case = {
-        "img2img": AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size),
-        # "crossdomain": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size), # todo naor look here for the name of ypur model
-        "B2B": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
-        "F2F": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
-        "unet": Unet(img_size_rev, epochs=epochs, batch_size=batch_size),
-        "pix2pix": None
-    }
-    return case.get(name, None)
+
+    if name == "img2img":
+        return AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size)
+    elif name == "b2b":
+        return AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size)
+    elif name == "f2f":
+        return AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size)
+    elif name == "unet":
+        return Unet(img_size_rev, epochs=epochs, batch_size=batch_size),
+    elif name == "pix2pix":
+        return None
+    else:
+        return None
+    # case = {
+    #     "img2img": AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size),
+    #     # "crossdomain": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
+    #     "B2B": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
+    #     "F2F": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
+    #     "unet": Unet(img_size_rev, epochs=epochs, batch_size=batch_size),
+    #     "pix2pix": None
+    # }
+    # return case.get(name, None)
 
 
 def parse_command_line():
@@ -177,27 +194,33 @@ def parse_command_line():
     run(dir=args.dir, model_name=args.model_type, epochs=args.epochs, batch_size=args.batch_size,
         read_img=args.read_img, org_type=args.org_type[0], img_read_limit=args.read_limit)
 
-def run_all_orgs():
 
-    best_orgs = {"Mitochondria": None,
-                 "Endoplasmic-reticulum": None,
-                 "Nuclear-envelope": None,
-                 "Actin-filaments": None,
-                 "Microtubules": None}
+def run_all_orgs(selected_model_name: str, best_orgs_dict: dict):
+    """
+    Params:
+    selected_model - name of the model
+    --------------
+    best_orgs dict -
 
-    selected_model = "img2img"
+    Key: Organelle Name.
+    Example - "Mitochondria"
+
+    Value: Model date-time to load, to create new model leave None.
+    Example - "28-04-2022_10-59"
+    """
+
     start_all = datetime.now()
 
-    for organelle, model_date in best_orgs.items():
+    for organelle, model_date in best_orgs_dict.items():
 
         working_org = "----- Working on organelle: %s -----" % organelle
         print(len(working_org) * "-")
         print(working_org)
         print(len(working_org) * "-")
 
+        model_dir = "/%s_%s_%s/" % (selected_model_name, organelle, model_date) if model_date else None
 
-        model_dir = "/%s_%s_%s/" % (selected_model, organelle, model_date) if model_date else None
-        run(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=100, batch_size=32,
+        run(dir="%s_%s" % (selected_model_name, organelle), model_name=selected_model_name, epochs=100, batch_size=32,
             read_img=True, org_type=organelle, img_read_limit=200, load_model_date=model_dir, multiply_img_z=4)
 
         done_org = "***** Done organelle: %s *****" % organelle
@@ -209,24 +232,28 @@ def run_all_orgs():
     print('All organelles done, Total Time for this run: ', stop_all - start_all)
 
 
-# def calculate_pearson_for_all_images(model, data_input, data_output, time, model_name, organelle):
-#
-#     print("Numpy corr : -----------")
-#     all_pearson = []
-#     for i, img in enumerate(data_input):
-#         predicted_img = model.predict([img])
-#         all_pearson.append(metrics.metrics.np_corr(data_output[i], predicted_img)[0][1])
-#     file = open("%s/Pearson_correlation_%s.txt" % (utils.DIRECTORY, time) , "w+")
-#     results = "total predicted: %d, mean : %f , std: %f" % ( len(all_pearson), np.mean(all_pearson) , np.std(all_pearson) )
-#     file.writelines([time, "\n", model_name, "\n", organelle[:-1], "\n", results])
-#     print(results)
-#     print("------------------------------------------------------")
-
 if __name__ == '__main__':
-    # todo please change your run params here
-    selected_model = "img2img"
-    organelle = "Mitochondria"
-    run(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=100, batch_size=32, read_img=True,
-        org_type=organelle, img_read_limit=200, multiply_img_z=4)
 
-    # run_all_orgs()
+    # todo please change your run params here
+    # see run_all_orgs function and documentation
+    # you can copy model name from here
+    all_models = ["pix2pix", "unet", "f2f", "b2b", "img2img"]
+
+    selected_model = "img2img"
+
+    # todo please comment/uncomment your selected Organelle !!
+    best_orgs = {
+         "Mitochondria": None,
+         # "Actin-filaments": None,
+         # "Microtubules": None,
+         "Endoplasmic-reticulum": None,
+         "Nuclear-envelope": None
+    }
+
+    run_all_orgs(selected_model, best_orgs)
+
+
+    # organelle = "Mitochondria"
+    # run(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=100, batch_size=32, read_img=True,
+    #     org_type=organelle, img_read_limit=200, multiply_img_z=4)
+
