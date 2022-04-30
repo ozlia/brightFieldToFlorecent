@@ -1,7 +1,5 @@
 from __future__ import print_function, division
 import utils
-import tensorflow as tf
-from tensorflow.keras.callbacks import CSVLogger
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
     Activation, Flatten, Dense
@@ -14,27 +12,15 @@ import numpy as np
 import os
 import pandas as pd
 
-from Pix2Pix.DataHandler import data_handler
-from DataGeneration import DataGenPreparation, DataGenerator
+from Pix2Pix.BeforeDataGen.DataHandler import data_handler
 
 
 class P2P_Discriminator():
-    def __init__(self, batch_size, patch_size_channels_last, use_patches=False):
-        self.input_size_channels_last = patch_size_channels_last
-        self.optimizer = Adam(0.0002, 0.5)
-
-        # self.channels used to be 1
-        if use_patches:  # Calculate patch size of D (PatchGAN)
-            patchGAN_patch_size = 2 ** 4
-            self.patch_size = int(self.input_size_channels_last / patchGAN_patch_size)
-            patch_arr_size = (batch_size, self.patch_size, self.patch_size, self.input_size_channels_last[2])
-            self.loss_fn = tf.keras.losses.mean_squared_error #'mse'
-        else:
-            patch_arr_size = (batch_size, self.input_size_channels_last[2])
-            self.loss_fn = tf.keras.losses.binary_crossentropy # 'binary_crossentropy'
-
+    def __init__(self, use_patches=False):
         self.n_filters = 64
+        self.optimizer = Adam(0.0002, 0.5)
         self.build_model(use_patches)
+        self.compile_model(use_patches)
 
     def add_conv_layer(self, layer_input, filters, f_size=4, bn=True, dropout_rate=0):
         """Discriminator layer"""
@@ -47,21 +33,20 @@ class P2P_Discriminator():
         return d
 
     def build_model(self, use_patches):
-        img_A = Input(shape=self.input_size_channels_last)
-        img_B = Input(shape=self.input_size_channels_last)
+        img_A = Input(shape=self.img_shape)
+        img_B = Input(shape=self.img_shape)
 
         # Concatenate image and conditioning image by channels to produce input
         combined_imgs = Concatenate(axis=-1)([img_A, img_B])
 
-        d1 = self.add_conv_layer(combined_imgs, self.n_filters)
+        d1 = self.add_conv_layer(combined_imgs, self.df)
         d2 = self.add_conv_layer(d1, self.n_filters * 2, dropout_rate=0.1)
         d3 = self.add_conv_layer(d2, self.n_filters * 4)
         d4 = self.add_conv_layer(d3, self.n_filters * 8)
 
-        if use_patches:  # filter output
+        if not use_patches:  # filter output
             # originally padding same
-            validity = Conv2D(1, kernel_size=self.input_size_channels_last, strides=1, padding='same',
-                              activation='sigmoid')(d4)
+            validity = Conv2D(1, kernel_size=self.patch_size, strides=1, padding='same', activation='sigmoid')(d4)
         else:
             validity = Flatten()(d4)
             validity = Dense(1)(validity)
@@ -69,14 +54,19 @@ class P2P_Discriminator():
 
         self.model = Model([img_A, img_B], validity)
 
+    def compile(self, use_patches):
+        if use_patches:
+            d_loss = 'mse'
+        else:
+            d_loss = 'binary_crossentropy'
+        self.model.compile(loss=d_loss, optimizer=self.optimizer)
+
 
 class P2P_Generator():
-    def __init__(self, patch_size_channels_last):
+    def __init__(self):
         self.filters = 64
-        self.input_size = patch_size_channels_last
         self.build_model()
-        self.optimizer = Adam(0.0002, 0.5)
-        self.loss_fn = tf.keras.losses.mean_absolute_error
+        self.compile()
 
     def add_conv_layer(self, layer_input, filters, f_size=4, bn=True):
         """Layers used during downsampling"""
@@ -98,7 +88,7 @@ class P2P_Generator():
 
     def build_model(self):
         # Image input
-        d0 = Input(shape=self.input_size)
+        d0 = Input(shape=self.img_shape)
 
         # Downsampling
         d1 = self.add_conv_layer(d0, self.filters, bn=False)
@@ -116,106 +106,115 @@ class P2P_Generator():
         u5 = self.add_deconv_layer(u4, d1, self.filters)
 
         u6 = UpSampling2D(size=2)(u5)
-        output_img = Conv2D(self.input_size[2], kernel_size=4, strides=1, padding='same', activation='sigmoid')(u6)
+        output_img = Conv2D(self.channels, kernel_size=4, strides=1, padding='same', activation='sigmoid')(u6)
 
         self.model = Model(d0, output_img)
 
+    def compile(self):
+        optimizer = Adam(0.0002, 0.5)
+        self.generator.compile(loss='mae', optimizer=optimizer)
 
-class Pix2Pix(Model):
-    def __init__(self, patch_size_channels_last, batch_size, print_summary=False, utilize_patchGAN=False):
-        super(Pix2Pix, self).__init__()
+
+class Pix2Pix:
+    def __init__(self, batch_size=-1, print_summary=False, utilize_patchGAN=True, nImages_to_sample=3):
         self.progress_report = {k: [] for k in ['Epoch', 'Batch', 'G Loss', 'D Loss']}
         self.utilize_patchGAN = utilize_patchGAN
-        self.batch_size = batch_size
-        self.patch_size_channels_last = patch_size_channels_last
-        self.num_total_batches = 0
+        self.nImages_to_sample = nImages_to_sample
+
+        # Input shape
+        self.data_handler = data_handler()
+        self.img_shape = self.data_handler.img_size_channels_last  # 128x128x6
+        self.img_rows = self.img_shape[0]
+        self.img_cols = self.img_shape[1]
+        self.channels = self.img_shape[2]
+
+        if self.utilize_patchGAN:  # Calculate patch size of D (PatchGAN)
+            patchGAN_patch_size = 2 ** 4
+            self.patch_size = int(self.img_rows / patchGAN_patch_size)
+            self.disc_patch = (self.patch_size, self.patch_size, 1)
 
         if print_summary:
             self.print_summary()
 
-        self.full_gen = P2P_Generator(self.patch_size_channels_last)
-        self.full_disc = P2P_Discriminator(batch_size=self.batch_size,patch_size_channels_last=patch_size_channels_last,use_patches=utilize_patchGAN)
-        self.generator = self.full_gen.model
-        self.discriminator = self.full_disc.model
+        self.build_model()
 
-        self.compile()
+    def build_model(self, disc_loss):
 
-    def compile(self,
-                optimizer='rmsprop',
-                loss=None,
-                metrics=None,
-                loss_weights=None,
-                sample_weight_mode=None,
-                weighted_metrics=None,
-                **kwargs):
+        self.discriminator = P2P_Discriminator(self.utilize_patchGAN)
+        self.generator = P2P_Generator()
 
-        super(Pix2Pix, self).compile()
-        self.loss_weights = [0.5, 0.5]
+        # Input images and their conditioning images
+        real_fluorescent = Input(shape=self.img_shape)
+        real_brightfield = Input(shape=self.img_shape)
 
-        self.discriminator.compile(loss=self.full_disc.loss_fn, optimizer=self.full_disc.optimizer)
-        self.generator.compile(loss=self.full_gen.loss_fn, optimizer=self.full_gen.optimizer)
+        # By conditioning on B generate a fake version of A
+        fake_fluorescent = self.generator(real_brightfield)
 
-    def call(self, inputs):
-        return self.generator(inputs)
+        # For the combined model we will only train the generator
+        self.discriminator.trainable = False
 
-    def train_step(self, patches):
-        brightfield_batch, real_fluorescent_batch = patches
+        # Discriminators determines validity of translated images / condition pairs
+        valid = self.discriminator([fake_fluorescent, real_brightfield])
 
-        # Decode them to fake images
-        generated_images = self.generator(brightfield_batch)
+        self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
+        self.combined.compile(loss=[disc_loss, 'mae'], loss_weights=[10, 90], optimizer=self.g_optimizer)
 
-        # Combine them with real images
-        combined_images_fake = tf.concat([generated_images, brightfield_batch], axis=0)
-        combined_images_real = tf.concat([real_fluorescent_batch, brightfield_batch], axis=0)
+    def train(self, epochs, batch_size_in_patches=50, sample_interval_in_batches=50,
+              report_sample_interval_in_batches=1, shuffle_batches=False):
+        start_time = datetime.datetime.now()
 
-        # Assemble labels discriminating real from fake images
-        # Add random noise to the labels - important trick!
-        labels_shape = (self.batch_size, 1)
-        valid_labels = tf.ones(labels_shape) + 0.05 * tf.random.uniform(tf.shape(labels_shape))
-        fake_labels = tf.zeroes(labels_shape) + 0.05 * tf.random.uniform(tf.shape(labels_shape))
-
-        if self.num_total_batches % 10 == 0:  # leaning towards training generator better
-            # Train the discriminator
-            with tf.GradientTape() as tape:
-                real_predictions = self.discriminator(combined_images_real)
-                d_loss_valid = self.loss_fn(valid_labels, real_predictions)
-            grads = tape.gradient(d_loss_valid, self.discriminator.trainable_weights)
-            self.d_optimizer.apply_gradients(
-                zip(grads, self.discriminator.trainable_weights)
-            )
-
-            with tf.GradientTape() as tape:
-                fake_predictions = self.discriminator(combined_images_fake)
-                d_loss_fake = self.loss_fn(fake_labels, fake_predictions)
-            grads = tape.gradient(d_loss_fake, self.discriminator.trainable_weights)
-            self.d_optimizer.apply_gradients(
-                zip(grads, self.discriminator.trainable_weights)
-            )
-
-            d_loss = 0.5 * np.add(d_loss_valid, d_loss_fake)
+        # Adversarial loss ground truths
+        if self.utilize_patchGAN:
+            patch_arr_size = (batch_size_in_patches,) + self.disc_patch
         else:
-            d_loss = (0, 0)
+            patch_arr_size = (batch_size_in_patches, 1)
 
-        # Assemble labels that say "all real images"
-        misleading_labels = tf.zeros((batch_size, 1))
+        valid = np.ones(patch_arr_size)
+        fake = np.zeros(patch_arr_size)
 
-        # Train the generator
-        # Do not update the discriminator weights
+        d_loss = (0, 0)
 
-        with tf.GradientTape() as tape:
-            fake_predictions = self.discriminator(combined_images_fake)  # again after training
-            # Loss w.r.t ground truth
-            gen_gt_loss = self.full_gen.loss_fn(real_fluorescent_batch, generated_images)
-            # Loss from discriminator's judgement
-            gen_vs_disc_loss = self.loss_weights[1] * self.full_gen.loss_fn(generated_images, fake_predictions)
+        for epoch in range(epochs):
+            for batch_i, (real_brightfield_batch, real_fluorescent_batch) in enumerate(
+                    self.data_handler.load_images_as_batches(batch_size=batch_size_in_patches,
+                                                             shuffle=shuffle_batches)):
+                # ---------------------
+                #  Train Discriminator
+                # ---------------------
 
-            g_loss = self.loss_weights[0] * gen_gt_loss + self.loss_weights[1] * gen_vs_disc_loss
+                fake_fluorescent_batch = self.generator.predict(real_brightfield_batch)
 
-        grads = tape.gradient(g_loss, self.generator.trainable_weights)
-        self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
+                # Train the discriminators (original images = real / generated = Fake)
 
-        del tape
-        return {"d_loss": d_loss, "g_loss": g_loss}
+                if batch_i % 10 == 0:  # leaning towards training generator better
+                    # disc_real_brightfield_batch, disc_real_fluorescent_batch = batch_generator.__next__()
+                    # batch_i += 1
+                    self.discriminator.trainable = True
+                    d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
+                                                                    valid)
+                    d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
+                                                                    fake)
+                    d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+
+                # -----------------
+                #  Train Generator
+                # -----------------
+
+                # Train the generators
+                self.discriminator.trainable = False
+                g_loss = self.combined.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
+                                                      [valid, real_fluorescent_batch])
+
+                self.document_progress(curr_epoch=epoch + 1, total_epochs=epochs, curr_batch=batch_i, d_loss=d_loss,
+                                       g_loss=g_loss, start_time=start_time,
+                                       sample_interval=report_sample_interval_in_batches)
+
+                # If at save interval => save generated image samples
+                if ((batch_i + 1) % sample_interval_in_batches) == 0:
+                    self.sample_images(epoch, batch_i + 1)
+
+                # if d_loss < 0.0001:  # Typically points towards vanishing gradient
+                #     raise InterruptedError('dloss was too low so generator has probably stopped learning at this point')
 
     def sample_images(self, epoch, batch_i):
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,
@@ -275,8 +274,7 @@ class Pix2Pix(Model):
 
             brightfield = np.expand_dims(self.data_handler.X_test[i], axis=0)  # for patchify process
             real_fluorescent = self.data_handler.y_test[i]
-            gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield,
-                                                          self.data_handler.img_size_channels_last)
+            gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield, self.data_handler.img_size_channels_last)
 
             # TODO might need to narrow down to only channel 2 of fluorescent
             eval_metrics['peak_snr'].append(
@@ -306,53 +304,17 @@ class Pix2Pix(Model):
 
 if __name__ == '__main__':
     # Current changes   -   90x10 loss weights, leakyRelu all layers, extra gen layer, dropout on disc
-    # TODO
-    # 1. images should be sampled on epoch_end on DataGen with validation set
-    # 2. progress should be documented with g loss and d loss every epoch using Keras CallBack
-    # 3. if we want to train disc with different batch, not flexible and uneasy to accomplish
-    # 4. Custom callback to sample images in end of batch - in CustomCallbacks file
 
+    batch_size = 32  # 3500 patches, ~107 batches per epoch if limit=150
+    img_sample_interval_in_batches = 106
+    report_sample_interval_in_batches = 106
     print_summary = False
-
-    # training params
-    batch_size = 32
-    epochs = 300
-    validation_size = 0.0
-    test_size = 0.3
-    batch_size = 32
     utilize_patchGAN = False
-    # nImages_to_sample = 3 #TODO insert into DataGen
+    nImages_to_sample = 3
+    shuffle_batches = True
 
-    # Data Parameters
-    org_type = "Mitochondria"
-    img_size = (640, 896, 6)
-    patch_size = (128, 128, 6)
-    # resplit = False
-
-    gan = Pix2Pix(patch_size_channels_last=patch_size, batch_size=batch_size, print_summary=print_summary,
-                  utilize_patchGAN=utilize_patchGAN)
-    dgp = DataGenPreparation.DataGeneratorPreparation(img_size_channels_last=img_size,
-                                                      patch_size_channels_last=patch_size, org_type=org_type,
-                                                      resplit=False, validation_size=validation_size,
-                                                      test_size=test_size)
-    train_data_gen = DataGenerator.DataGenerator(patches_path=utils.get_dir(dgp.patches_dir_path),
-                                                 batch_size=batch_size,
-                                                 patch_size=patch_size, data_set='Train')
-
-    if validation_size > 0:
-        validation_data_gen = DataGenerator.DataGenerator(patches_path=utils.get_dir(dgp.patches_dir_path),
-                                                          batch_size=batch_size,
-                                                          patch_size=patch_size, data_set='Validation')
-    else:
-        validation_data_gen = None
-    # TODO add callbacks
-    # callbacks = [
-    #     # keras.callbacks.ModelCheckpoint("%sBasicAEModel3D.h5" % model_dir, save_best_only=True),
-    #     CSVLogger('log.csv' , append=True, separator=';')
-    # ]
-
-    # TODO: Currently only one img in test set because the second image had 4 channels and wasn't processed
-    gan.fit(train_data_gen, validation_data=validation_data_gen, epochs=epochs, shuffle=True,
-            verbose=1)
-    # gan.predict_and_save()
-    # gan.save_model_and_progress_report()
+    gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN, nImages_to_sample=nImages_to_sample)
+    gan.train(epochs=300, batch_size_in_patches=batch_size, sample_interval_in_batches=img_sample_interval_in_batches,
+              report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
+    gan.predict_and_save()
+    gan.save_model_and_progress_report()

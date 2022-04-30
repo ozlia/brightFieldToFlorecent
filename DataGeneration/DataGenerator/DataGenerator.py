@@ -1,12 +1,8 @@
-import json
-from copy import deepcopy
-
 from tensorflow import keras
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 import os
 from glob import glob
-import utils
 
 seed = 42
 np.random.seed = seed
@@ -16,8 +12,8 @@ class DataGenerator(keras.utils.Sequence):
     def __init__(self, patches_path, batch_size, patch_size, data_set='Train', data_format_in_disc='npy'):
         # self.fluorescent_paths = os.listdir(os.path.join(patches_path, data_set, 'Fluorescent'))
         patches_root_dir = os.path.join(patches_path, data_set)
-        self.brightfield_paths = glob(os.path.join(patches_root_dir, 'Brightfield',f'*.{data_format_in_disc}'))
-        self.fluorescent_paths = glob(os.path.join(patches_root_dir, 'Fluorescent',f'*.{data_format_in_disc}'))
+        self.brightfield_paths = glob(os.path.join(patches_root_dir, 'Brightfield', f'*.{data_format_in_disc}'))
+        self.fluorescent_paths = glob(os.path.join(patches_root_dir, 'Fluorescent', f'*.{data_format_in_disc}'))
         self.idx_array = np.arange(start=0, stop=len(self.brightfield_paths), step=1)
         self.batch_size = batch_size
         self.patch_size = patch_size
@@ -27,6 +23,7 @@ class DataGenerator(keras.utils.Sequence):
         return len(self.brightfield_paths) // self.batch_size
 
     def __getitem__(self, idx):
+        # assert idx < len(self), f"Expected {len(self)} batches in epoch, received {idx}"
         sampled_indexes = np.random.choice(self.idx_array, self.batch_size, replace=False)
         np.delete(self.idx_array, sampled_indexes)
         brightfield_batch = []
@@ -40,14 +37,12 @@ class DataGenerator(keras.utils.Sequence):
         if self.data_set == 'Train':
             brightfield_batch = self.augment_images(brightfield_batch)
             fluorescent_batch = self.augment_images(fluorescent_batch)
-        brightfield_batch = np.squeeze(np.array(brightfield_batch),axis=1)
-        fluorescent_batch = np.squeeze(np.array(fluorescent_batch),axis=1)
-        return brightfield_batch,fluorescent_batch
+        return np.array(brightfield_batch), np.array(fluorescent_batch)
 
     def on_epoch_end(self):
         self.idx_array = np.arange(start=0, stop=len(self.brightfield_paths), step=1)
 
-    def augment_images(self, arr):  ##TODO consult Liad on dtype.
+    def augment_images(self, arr):
         return arr
         # dtype='float8'
         augmentor = ImageDataGenerator(featurewise_center=True, rotation_range=90,

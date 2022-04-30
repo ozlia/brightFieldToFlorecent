@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +16,7 @@ USER = getpass.getuser().split("@")[0]
 # print("enter select directory name for this run: ")
 
 DIRECTORY = "/home/%s" % USER
+
 
 def get_dir(dir_path):
     return os.path.join(DIRECTORY, dir_path)
@@ -173,17 +176,14 @@ def patchify_predict_imgs(model, imgs, patch_dims):  # assuming img dims are (1,
     return unpatchify(patches, size)
 
 
-# def is_not_empty(dir_path, user=None):  # also checks in subdirs
-#     if user is None:
-#         dir_path = get_dir(dir_path)
-#     else:
-#         set_dir(user)
-#         dir_path = get_dir(dir_path)
-#         set_dir(USER)
-#     return os.path.isdir(dir_path) and sum([len(files) for r, d, files in os.walk(dir_path)]) > 0
-
 def get_usernames(curr_user_first=True):
     usernames = ['naorsu', 'tomrob', 'ozlia', 'omertag']
     if curr_user_first:
         usernames.insert(usernames.pop(usernames.index(USER)))
     return usernames
+
+
+def get_time_diff_minutes(first, second):
+    assert type(first) == datetime, f'Expected datetime type, received {type(first)}'
+    assert type(second) == datetime, f'Expected datetime type, received {type(second)}'
+    return ((first - second).total_seconds() // 60) + 1

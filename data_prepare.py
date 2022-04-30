@@ -31,15 +31,15 @@ def load_paths(org_type, limit=1):
 
     # files, x_pixels, y_pixels, color
 
-def load_paths_v2(org_type, limit=None): #TODO test if this even needs the final /
+def load_paths_v2(org_type, limit=None):  # Doesn't compel to pass organelle with '/'. limit default to max over min
     fovs = []
-    storage_folder = '/' + os.path.join('storage','users','assafzar','fovs',org_type)
+    storage_folder = '/' + os.path.join('storage', 'users', 'assafzar', 'fovs', org_type)
     file_paths = os.listdir(storage_folder)
     if limit is None:
         limit = len(file_paths)
     for file in file_paths:
         if file.endswith('.tiff'):
-            fovs.append(os.path.join(storage_folder,file))
+            fovs.append(os.path.join(storage_folder, file))
     return fovs[:limit]
 
 
