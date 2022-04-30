@@ -274,7 +274,7 @@ class Pix2Pix:
 
             brightfield = np.expand_dims(self.data_handler.X_test[i], axis=0)  # for patchify process
             real_fluorescent = self.data_handler.y_test[i]
-            gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield, self.data_handler.img_size_channels_last)
+            gen_fluorescent = utils.predict_on_imgs(self.generator, brightfield, self.data_handler.img_size_channels_last)
 
             # TODO might need to narrow down to only channel 2 of fluorescent
             eval_metrics['peak_snr'].append(

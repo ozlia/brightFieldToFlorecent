@@ -59,26 +59,39 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         imgs_names = []
         imgs_data_set = []
         name_to_dataset_img_paths = self.train_val_test_split(base_names=False, initial_testing=initial_testing)
+        print(
+            f'Proccesing a tiff should take upto 25 seconds, so loading each image batch should take upto {25 * self.imgs_bulk_size // 60} minutes')
         for data_set_name, data_set_paths in name_to_dataset_img_paths.items():
             imgs_data_set += [data_set_name] * len(data_set_paths)
             # if too many imgs to read at once
             for i in range(0, len(data_set_paths), self.imgs_bulk_size):
                 curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
-                print(f'Loading batch number {i} in {data_set_name} set')
+                start = datetime.now()
+                curr_batch_num = i // self.imgs_bulk_size + 1
+                print(
+                    f'Starting to process batch {curr_batch_num} in {data_set_name} set. Current time: {start}')
                 data_sets = data_prepare.separate_data(curr_data_set_paths, self.img_size_channels_first)
-                brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set
-                                                    in
+                print(
+                    f'Loading batch number {curr_batch_num} took: {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
+                brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
                                                     data_sets)  # costly operation
 
+                start = datetime.now()
+                print(f'Saving images and patches for batch {curr_batch_num}. Current time: {start}')
                 for i, (bf_img, flr_img) in enumerate(zip(brightfield_arr, fluorescent_arr)):
-                    curr_img_name = path.basename(data_set_paths[i]).split('.')[0]
+                    curr_img_name = path.basename(curr_data_set_paths[i]).split('.')[0]
                     imgs_names.append(curr_img_name)
-                    print(f'Saving brightfield image and patches number {i} in {data_set_name} set')
-                    self.save_img_and_patches(img=bf_img, img_name=imgs_names[i], format='Brightfield',
+                    img_dir = self.build_img_path(self.images_dir_path, data_set_name, 'Brightfield')
+                    if path.exists(utils.get_dir(path.join(img_dir, f'{curr_img_name}.npy'))):
+                        continue
+
+                    self.save_img_and_patches(img=bf_img, img_name=curr_img_name, format='Brightfield',
                                               data_set=data_set_name)
-                    print(f'Saving floro image and patches number {i} in {data_set_name} set')
-                    self.save_img_and_patches(img=flr_img, img_name=imgs_names[i], format='Fluorescent',
+                    self.save_img_and_patches(img=flr_img, img_name=curr_img_name, format='Fluorescent',
                                               data_set=data_set_name)
+                print(
+                    f'Saving images and patches for batch number {curr_batch_num} took {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
+
         self.save_patches_meta_data()
         img_name_to_dataset = pd.DataFrame(data=dict(Name=imgs_names, Data_Set=imgs_data_set))
         img_name_to_dataset.to_csv(path_or_buf=self.images_mapping_fpath)

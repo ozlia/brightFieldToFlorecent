@@ -1,4 +1,6 @@
 from __future__ import print_function, division
+
+import data_prepare
 import utils
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
@@ -121,7 +123,8 @@ class P2P_Generator():
         u5 = self.add_deconv_layer(u4, d1, self.n_filters)
 
         u6 = UpSampling2D(size=2)(u5)
-        output_img = Conv2D(self.input_size_channels_last[2], kernel_size=4, strides=1, padding='same', activation='sigmoid')(u6)
+        output_img = Conv2D(self.input_size_channels_last[2], kernel_size=4, strides=1, padding='same',
+                            activation='sigmoid')(u6)
 
         self.model = Model(d0, output_img)
 
@@ -131,14 +134,11 @@ class Pix2Pix:
                  nImages_to_sample=3):
         self.progress_report = {k: [] for k in ['Epoch', 'Batch', 'G Loss', 'D Loss']}
         self.utilize_patchGAN = utilize_patchGAN
-        self.nImages_to_sample = nImages_to_sample
+        self.num_images_in_sample = nImages_to_sample
         self.batch_size = batch_size
 
         # Input shape
         self.patch_size_channels_last = patch_size_channels_last
-        self.img_rows = self.patch_size_channels_last[0]
-        self.img_cols = self.patch_size_channels_last[1]
-        self.channels = self.patch_size_channels_last[2]
 
         if print_summary:
             self.print_summary()
@@ -167,19 +167,18 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=[self.full_disc.loss, self.full_gen.loss], loss_weights=[50, 50],
+        self.combined.compile(loss=[self.full_disc.loss, self.full_gen.loss], loss_weights=[10, 90],
                               optimizer=self.full_gen.optimizer)
 
-    def custom_train_on_batch(self, epochs, data_gen: DataGenerator):
+    def custom_train_on_batch(self, epochs, data_gen: DataGenerator, save_target_dir):
         self.num_batches_in_epoch = len(data_gen)
         start_time = datetime.datetime.now()
 
         d_loss = (0, 0)
         for epoch in range(epochs):
             for batch_num in range(self.num_batches_in_epoch):
-                real_brightfield_batch, real_fluorescent_batch = data_gen[batch_num]
-
-                fake_fluorescent_batch = self.generator.predict(real_brightfield_batch)
+                brightfield_batch, real_fluorescent_batch = data_gen[batch_num]
+                fake_fluorescent_batch = self.generator.predict(brightfield_batch)
 
                 # ---------------------
                 #  Train Discriminator
@@ -188,9 +187,9 @@ class Pix2Pix:
                 if batch_num % 10 == 0:  # leaning towards training generator better
                     # disc_real_brightfield_batch, disc_real_fluorescent_batch = batch_generator.__next__()
                     # batch_i += 1
-                    d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
+                    d_loss_real = self.discriminator.train_on_batch([real_fluorescent_batch, brightfield_batch],
                                                                     self.full_disc.valid)
-                    d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, real_brightfield_batch],
+                    d_loss_fake = self.discriminator.train_on_batch([fake_fluorescent_batch, brightfield_batch],
                                                                     self.full_disc.fake)
                     d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
@@ -198,23 +197,21 @@ class Pix2Pix:
                 #  Train Generator
                 # -----------------
 
-                g_loss = self.combined.train_on_batch([real_fluorescent_batch, real_brightfield_batch],
+                g_loss = self.combined.train_on_batch([real_fluorescent_batch, brightfield_batch],
                                                       [self.full_disc.valid, real_fluorescent_batch])
 
                 self.document_progress(curr_epoch=epoch + 1, total_epochs=epochs, curr_batch=batch_num, d_loss=d_loss,
                                        g_loss=g_loss, start_time=start_time)
 
-        fig_name = f'e{epoch}_b{batch_num}.png'
-        utils.sample_images(self.generator, real_brightfield_batch[:self.nImages_to_sample],
-                            real_fluorescent_batch[:self.nImages_to_sample], fig_name, rescale=False,
-                            org_type=self.data_handler.org_type)
+            fig_name = f'e{epoch}_b{batch_num}.png'
+            utils.sample_images(model=self.generator, brightfield_patches=brightfield_batch[:self.num_images_in_sample],
+                                fluorescent_patches=real_fluorescent_batch[:self.num_images_in_sample], fig_name=fig_name,
+                                rescale=False, target_dir=save_target_dir)
 
         data_gen.on_epoch_end()
 
-
-    def save_model_and_progress_report(self, target_path=None):
-        if target_path is None:
-            target_path = os.path.join(utils.DIRECTORY, self.data_handler.org_type)
+    def save_model_and_progress_report(self, target_path):
+        target_path = utils.get_dir(target_path)
         models_root_dir = os.path.join(target_path, 'models')
         progress_root_dir = os.path.join(target_path, 'progress_reports')
         os.makedirs(progress_root_dir, exist_ok=True)
@@ -228,18 +225,11 @@ class Pix2Pix:
         progress_report: pd.DataFrame = pd.DataFrame.from_dict(data=self.progress_report)
         progress_report.to_csv(os.path.join(progress_root_dir, fname), index=False)
 
-
     def load_model(self, target_path=None, transfer_learning=False):
-        if target_path is None:
-            target_path = os.path.join(utils.DIRECTORY, self.data_handler.org_type, 'models')
-        try:
-            self.generator = load_model(filepath=os.path.join(target_path, 'generator_model'), compile=False)
-            if transfer_learning:
-                self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'), compile=False)
-                self.discriminator = load_model(filepath=os.path.join(target_path, 'discriminator_model'))
-        except:
-            raise FileNotFoundError(f'Could not load models from path: {target_path}')
-
+        self.generator = load_model(filepath=os.path.join(target_path, 'generator_model'), compile=False)
+        if transfer_learning:
+            self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'), compile=False)
+            self.discriminator = load_model(filepath=os.path.join(target_path, 'discriminator_model'))
 
     def document_progress(self, curr_epoch, total_epochs, curr_batch, d_loss, g_loss, start_time):
         elapsed_time = datetime.datetime.now() - start_time
@@ -254,35 +244,42 @@ class Pix2Pix:
                                                                                g_loss[0],
                                                                                elapsed_time))
 
+    def predict_and_save_eval(self, test_data_gen: DataGenerator, img_size_channels_last, target_dir):
+        preds_dir_name = f"Predictions_{datetime.datetime.now().strftime('%d-%m-%Y, %H:%M:%S')}"
+        root_dir = os.path.join(target_dir, preds_dir_name)
+        os.makedirs(utils.get_dir(root_dir), exist_ok=True)
+        eval_metrics: dict = {k: [] for k in ['ssim', 'pearson']}
 
-    def predict_and_save(self):  #TODO adapt to data-gen
-        root_dir = os.path.join(utils.DIRECTORY, self.data_handler.org_type)
-        preds_dir_name = 'predicted_images'
-        eval_metrics: dict = {k: [] for k in ['peak_snr', 'ssim', 'mse']}
-        for i in range(len(self.data_handler.X_test)):
-            curr_imgs_output_dir = os.path.join(self.data_handler.org_type, preds_dir_name, str(i))
-            os.makedirs(name=os.path.join(utils.DIRECTORY, curr_imgs_output_dir),
-                        exist_ok=True)  # stupid save requires this
+        for img_i in range(len(test_data_gen)):
+            curr_img_name = test_data_gen.brightfield_patches_paths[img_i * test_data_gen.num_patches_in_img]
+            # full_path/ImgName_i.npy -> ImgName
+            curr_img_name = os.path.splitext(os.path.basename(curr_img_name))[0].rsplit('_', 1)[0]
 
-            brightfield = np.expand_dims(self.data_handler.X_test[i], axis=0)  # for patchify process
-            real_fluorescent = self.data_handler.y_test[i]
-            gen_fluorescent = utils.patchify_predict_imgs(self.generator, brightfield,
-                                                          self.data_handler.img_size_channels_last)
+            img_brightfield_patches, real_fluorescent_img = test_data_gen[img_i]
+            fake_fluorescent_img_channels_last = data_prepare.predict_on_patches(model=self.generator,
+                                                                                 patches=img_brightfield_patches,
+                                                                                 img_size_channels_last=img_size_channels_last)
 
-            # TODO might need to narrow down to only channel 2 of fluorescent
-            eval_metrics['peak_snr'].append(
-                peak_snr(real_fluorescent, gen_fluorescent, data_range=1.0))  # we need the maximal pixel value
-            eval_metrics['ssim'].append(ssim(real_fluorescent, gen_fluorescent, data_range=1.0, channel_axis=2))
-            eval_metrics['mse'].append(mse(real_fluorescent, gen_fluorescent))
+            curr_imgs_output_dir = os.path.join(root_dir, curr_img_name)
+            os.makedirs(curr_imgs_output_dir, exist_ok=True)
 
-            utils.save_full_2d_pic(gen_fluorescent[:, :, 2], os.path.join(curr_imgs_output_dir, 'gen_fluorescent.png'))
-            utils.save_full_2d_pic(real_fluorescent[:, :, 2],
-                                   os.path.join(curr_imgs_output_dir, 'real_fluorescent.png'))
-            utils.save_full_2d_pic(brightfield[0][:, :, 2], os.path.join(curr_imgs_output_dir, 'brightfield.png'))
+            # TODO: It might be possible to use the Keras evaluation api and get some additional info
+            eval_metrics['ssim'].append(
+                ssim(real_fluorescent_img, fake_fluorescent_img_channels_last, data_range=1.0, channel_axis=2))
+            eval_metrics['pearson'].append(
+                np.corrcoef(real_fluorescent_img.flatten(), fake_fluorescent_img_channels_last.flatten())[0][1])
 
-        fname = f"eval_{self.data_handler.org_type}.csv"
-        pd.DataFrame.from_dict(data=eval_metrics).to_csv(os.path.join(root_dir, fname), index=False)
+            utils.save_np_as_tiff_v2(img_channels_last=fake_fluorescent_img_channels_last,
+                                     fname=f'{curr_img_name}_fake',
+                                     target_path=curr_imgs_output_dir)
+            utils.save_np_as_tiff_v2(img_channels_last=real_fluorescent_img, fname=f'{curr_img_name}_real',
+                                     target_path=curr_imgs_output_dir)
+            utils.save_full_2d_pic(fake_fluorescent_img_channels_last[:, :, 0],
+                                   os.path.join(curr_imgs_output_dir, f'{curr_img_name}_fake.png'))
+            utils.save_full_2d_pic(real_fluorescent_img[:, :, 0],
+                                   os.path.join(curr_imgs_output_dir, f'{curr_img_name}_real.png'))
 
+        pd.DataFrame.from_dict(data=eval_metrics).to_csv(utils.get_dir(os.path.join(root_dir, 'eval.csv')), index=False)
 
     def print_summary(self):
         self.generator.summary()
@@ -299,36 +296,39 @@ class Pix2Pix:
 if __name__ == '__main__':
     # Current changes   -   50x50 loss weights, leakyRelu all layers, extra gen layer, dropout on disc,
 
-
     first_time_testing_if_works = False
     print_summary = False
 
     # training params
-    batch_size = 32
+    batch_size = 128
     epochs = 50
     validation_size = 0.0
     test_size = 0.3
-    batch_size = 32
     utilize_patchGAN = False
     # nImages_to_sample = 3 #TODO insert into DataGen
 
     # Data Parameters
     org_type = "Mitochondria"
-    img_size = (640, 896, 6)
-    patch_size = (128, 128, 6)
+    img_size_channels_first = (6, 640, 896)
+    img_size_channels_last = (img_size_channels_first[1], img_size_channels_first[2], img_size_channels_first[0])
+    patch_size_channels_last = (128, 128, 6)
+    num_patches_in_img = img_size_channels_first[1] // patch_size_channels_last[0] * img_size_channels_first[2] // \
+                         patch_size_channels_last[1]
     # resplit = False
 
-    gan = Pix2Pix(patch_size_channels_last=patch_size, batch_size=batch_size, print_summary=print_summary,
+    gan = Pix2Pix(patch_size_channels_last=patch_size_channels_last, batch_size=batch_size, print_summary=print_summary,
                   utilize_patchGAN=utilize_patchGAN)
 
-    dgp = DataGeneratorPreparation(img_size_channels_last=img_size,
-                                                      patch_size_channels_last=patch_size, org_type=org_type,
-                                                      resplit=False, validation_size=validation_size,
-                                                      test_size=test_size, initial_testing=first_time_testing_if_works)
-    train_data_gen = DataGenerator(patches_path=utils.get_dir(dgp.patches_dir_path),
-                                                 batch_size=batch_size,
-                                                 patch_size=patch_size, data_set='Train')
-
+    dgp = DataGeneratorPreparation(img_size_channels_first=img_size_channels_first,
+                                   patch_size_channels_last=patch_size_channels_last, org_type=org_type,
+                                   resplit=False, validation_size=validation_size,
+                                   test_size=test_size, initial_testing=first_time_testing_if_works)
+    train_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type),
+                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img
+                                   , data_set='Train')
+    test_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type),
+                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img
+                                  , data_set='Test')
     # if validation_size > 0:
     #     validation_data_gen = DataGenerator(patches_path=utils.get_dir(dgp.patches_dir_path),
     #                                                       batch_size=batch_size,
@@ -336,6 +336,9 @@ if __name__ == '__main__':
     # else:
     #     validation_data_gen = None
 
-    gan.custom_train_on_batch(epochs=epochs, data_gen=train_data_gen)
-    # gan.predict_and_save()
-    # gan.save_model_and_progress_report()
+    output_path = os.path.join(org_type, 'Output')
+
+    gan.custom_train_on_batch(epochs=epochs, data_gen=train_data_gen, save_target_dir=output_path)
+    gan.predict_and_save_eval(test_data_gen=test_data_gen, target_dir=output_path,
+                              img_size_channels_last=img_size_channels_last)
+    gan.save_model_and_progress_report(target_path=output_path)

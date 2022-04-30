@@ -11,7 +11,7 @@ import data_prepare
 
 
 class DataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation
-    def __init__(self, img_size_channels_last, patch_size_channels_last, org_type, resplit=False,
+    def __init__(self, img_size_channels_first, patch_size_channels_last, org_type, resplit=False,
                  validation_size=0.0, test_size=0.3, initial_testing=False):
         assert type(
             validation_size) == float and 0 <= validation_size < 1, f'Expected float in range [0,1) received: {validation_size}'
@@ -23,8 +23,9 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.val_size = validation_size
         self.test_size = test_size
 
-        self.img_size_channels_first = img_size_channels_last[::-1]
+        self.img_size_channels_first = img_size_channels_first
         self.patch_size_channels_last = patch_size_channels_last
+        self.patch_size_channels_first = patch_size_channels_last[::-1]  # assuming patch is square
 
         self.imgs_bulk_size = 25
         self.seed = 42
@@ -39,8 +40,8 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         # self.prepare_images_in_disc(resplit)  # flexible incase we don't want to initiate this with DataGeneratorPrep
 
     def prepare_images_in_disc_save_only(self, initial_testing):
-        # if path.exists(utils.get_dir(self.images_dir_path)):
-        #     return
+        if path.exists(utils.get_dir(self.images_dir_path)):
+            return
         self.prep_dirs()
         self.save_images(initial_testing)
 
@@ -165,7 +166,6 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         print(
             f'Proccesing a tiff should take upto 25 seconds, so loading each image batch should take upto {25 * self.imgs_bulk_size // 60} minutes')
         for data_set_name, data_set_paths in name_to_dataset_img_paths.items():
-            imgs_data_set += [data_set_name] * len(data_set_paths)
             # if too many imgs to read at once
             for i in range(0, len(data_set_paths), self.imgs_bulk_size):
                 curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
@@ -173,7 +173,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
                 curr_batch_num = i // self.imgs_bulk_size + 1
                 print(
                     f'Starting to process batch {curr_batch_num} in {data_set_name} set. Current time: {start}')
-                data_sets = data_prepare.separate_data(curr_data_set_paths, self.img_size_channels_first)
+                data_sets = data_prepare.separate_data(curr_data_set_paths, self.patch_size_channels_first)
                 print(
                     f'Loading batch number {curr_batch_num} took: {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
                 brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
@@ -195,6 +195,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
                 print(
                     f'Saving images and patches for batch number {curr_batch_num} took {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
 
+                imgs_data_set += [data_set_name] * brightfield_arr.shape[0]
         self.save_patches_meta_data()
         img_name_to_dataset = pd.DataFrame(data=dict(Name=imgs_names, Data_Set=imgs_data_set))
         img_name_to_dataset.to_csv(path_or_buf=self.images_mapping_fpath)

@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 import shutil
 import pandas as pd
 import utils
+from patchify import patchify, unpatchify
 
 img_dims = (6, 640, 896)
 
@@ -77,3 +78,24 @@ def image3d_prep(img_3d, type):
         img_3d_padded[i] = cv2.resize(img_3d[i], (896, 640), interpolation=cv2.INTER_AREA)
     img_3d_norm = utils.norm_img(img_3d_padded)
     return img_3d_norm
+
+
+def predict_on_imgs(model, imgs, patch_dims):  # assuming img dims are (1,patch_dims)
+    patches = utils.utils_patchify(imgs, patch_dims, over_lap_steps=1)
+    for row in patches:
+        for patch in row:
+            patch[0] = model.predict(patch)[0]
+    size = imgs[0].shape
+    return utils.unpatchify(patches, size)
+
+
+def predict_on_patches(model, patches: np.array, img_size_channels_last):  # assuming img dims are (1,patch_dims)
+    fake_fluorescent_patches = []
+    for patch in patches:
+        patch = np.expand_dims(patch, axis=0)
+        fake_fluorescent_patches.append(model.predict(patch))
+    fake_fluorescent_patches = np.reshape(np.array(fake_fluorescent_patches), newshape=(5, 7, 1,) + patches[
+        0].shape)  # (35,patch_size) -> ((5, 7, 1, patch_size)
+    fake_fluorescent_img_channels_last = utils.unpatchify(fake_fluorescent_patches, img_size_channels_last)
+    # fake_fluorescent_img_channels_first = np.moveaxis(fake_fluorescent_img_channels_last, -1, 0)
+    return fake_fluorescent_img_channels_last
