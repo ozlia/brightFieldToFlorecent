@@ -1,0 +1,6 @@
+*.pyc
+*~
+*.png
+*.json
+.idea/
+cache/
