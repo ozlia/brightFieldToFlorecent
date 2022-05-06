@@ -188,6 +188,6 @@ def save_np_as_tiff_v2(img_channels_last, fname, target_path):
     origin_dir = os.getcwd()
     os.chdir(output_path)
 
-    save_tiff(file=f'{fname}.tiff',data=img_channels_last)  # if interesting we have ImageJ param too
+    save_tiff(file=f'{fname}.tiff', data=img_channels_last)  # if interesting we have ImageJ param too
 
     os.chdir(origin_dir)

@@ -37,8 +37,8 @@ def run(dir, model_name, epochs=1000, batch_size=32, read_img=False, org_type=No
     if read_img:
         data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=img_read_limit),
                                                              img_size)
-        utils.save_numpy_array(data_input, "input_images_after_data_prepare_norm")
-        utils.save_numpy_array(data_output, "output_images_after_data_prepare_norm")
+        utils.save_numpy_array_as_dict(data_input, "input_images_after_data_prepare_norm")
+        utils.save_numpy_array_as_dict(data_output, "output_images_after_data_prepare_norm")
         print("Saved successfully numpy array at %s" % utils.DIRECTORY)
     else:
         data_input = utils.load_numpy_array("input_images_after_data_prepare_norm.npy")

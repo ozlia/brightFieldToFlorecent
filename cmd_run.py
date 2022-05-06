@@ -25,8 +25,8 @@ def run(epochs, batch_size, dir, read_img = False, org_type = None, img_read_lim
 
     if read_img:
         data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=img_read_limit), img_size)
-        utils.save_numpy_array(data_input, "input_images_after_data_prepare_norm")
-        utils.save_numpy_array(data_output, "output_images_after_data_prepare_norm")
+        utils.save_numpy_array_as_dict(data_input, "input_images_after_data_prepare_norm")
+        utils.save_numpy_array_as_dict(data_output, "output_images_after_data_prepare_norm")
     else:
         data_input = utils.load_numpy_array("input_images_after_data_prepare_norm.npy")
         data_output = utils.load_numpy_array("output_images_after_data_prepare_norm.npy")

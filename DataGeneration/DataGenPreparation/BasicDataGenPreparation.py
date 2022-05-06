@@ -1,5 +1,6 @@
 import json
 import shutil
+from datetime import datetime
 from os import path, makedirs, listdir, chdir, getcwd, walk
 import pandas as pd
 from keras_preprocessing.image import ImageDataGenerator
@@ -10,7 +11,7 @@ import data_prepare
 
 
 class DataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation
-    def __init__(self, img_size_channels_last, patch_size_channels_last, org_type, resplit=False,
+    def __init__(self, img_size_channels_first, patch_size_channels_last, org_type, resplit=False,
                  validation_size=0.0, test_size=0.3, initial_testing=False):
         assert type(
             validation_size) == float and 0 <= validation_size < 1, f'Expected float in range [0,1) received: {validation_size}'
@@ -22,10 +23,11 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.val_size = validation_size
         self.test_size = test_size
 
-        self.img_size_channels_first = img_size_channels_last[::-1]
+        self.img_size_channels_first = img_size_channels_first
         self.patch_size_channels_last = patch_size_channels_last
+        self.patch_size_channels_first = patch_size_channels_last[::-1]  # assuming patch is square
 
-        self.imgs_bulk_size = 50
+        self.imgs_bulk_size = 150
         self.seed = 42
 
         self.patches_dir_path = path.join(self.org_type, 'Patches')
@@ -34,67 +36,13 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.images_mapping_fpath = self.get_mapping_fpath()
         self.patches_meta_data_fpath = self.get_meta_data_fpath()
 
-        if not path.exists(utils.get_dir(self.images_dir_path)):
-            self.prep_dirs()
-            self.save_images(initial_testing)
+        self.prepare_images_in_disc_save_only(initial_testing)
 
-    def prep_dirs(self):
-        origin_wd = getcwd()
-        root_dir = utils.DIRECTORY
-        makedirs(root_dir, exist_ok=True)
-        chdir(root_dir)
-
-        makedirs(self.meta_dir_path, exist_ok=True)
-
-        for data_set in ['Train', 'Validation', 'Test']:
-            for data_format in ['Brightfield', 'Fluorescent']:
-                curr_imgs_dir = path.join(self.images_dir_path, data_set, data_format)
-                curr_patches_dir = path.join(self.patches_dir_path, data_set, data_format)
-                makedirs(curr_imgs_dir, exist_ok=True)
-                makedirs(curr_patches_dir, exist_ok=True)
-
-        chdir(origin_wd)
-
-    def save_images(self, initial_testing):
-        imgs_names = []
-        imgs_data_set = []
-        name_to_dataset_img_paths = self.train_val_test_split(base_names=False, initial_testing=initial_testing)
-        print(
-            f'Proccesing a tiff should take upto 25 seconds, so loading each image batch should take upto {25 * self.imgs_bulk_size // 60} minutes')
-        for data_set_name, data_set_paths in name_to_dataset_img_paths.items():
-            imgs_data_set += [data_set_name] * len(data_set_paths)
-            # if too many imgs to read at once
-            for i in range(0, len(data_set_paths), self.imgs_bulk_size):
-                curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
-                start = datetime.now()
-                curr_batch_num = i // self.imgs_bulk_size + 1
-                print(
-                    f'Starting to process batch {curr_batch_num} in {data_set_name} set. Current time: {start}')
-                data_sets = data_prepare.separate_data(curr_data_set_paths, self.img_size_channels_first)
-                print(
-                    f'Loading batch number {curr_batch_num} took: {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
-                brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
-                                                    data_sets)  # costly operation
-
-                start = datetime.now()
-                print(f'Saving images and patches for batch {curr_batch_num}. Current time: {start}')
-                for i, (bf_img, flr_img) in enumerate(zip(brightfield_arr, fluorescent_arr)):
-                    curr_img_name = path.basename(curr_data_set_paths[i]).split('.')[0]
-                    imgs_names.append(curr_img_name)
-                    img_dir = self.build_img_path(self.images_dir_path, data_set_name, 'Brightfield')
-                    if path.exists(utils.get_dir(path.join(img_dir, f'{curr_img_name}.npy'))):
-                        continue
-
-                    self.save_img_and_patches(img=bf_img, img_name=curr_img_name, format='Brightfield',
-                                              data_set=data_set_name)
-                    self.save_img_and_patches(img=flr_img, img_name=curr_img_name, format='Fluorescent',
-                                              data_set=data_set_name)
-                print(
-                    f'Saving images and patches for batch number {curr_batch_num} took {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
-
-        self.save_patches_meta_data()
-        img_name_to_dataset = pd.DataFrame(data=dict(Name=imgs_names, Data_Set=imgs_data_set))
-        img_name_to_dataset.to_csv(path_or_buf=self.images_mapping_fpath)
+    def prepare_images_in_disc_save_only(self, initial_testing):
+        if path.exists(utils.get_dir(self.images_dir_path)):
+            return
+        self.prep_dirs()
+        self.save_images(initial_testing)
 
     def train_val_test_split(self, base_names=False, initial_testing=False):  # returns paths for assaf storage
         name_to_dataset_img_paths = {}
@@ -120,6 +68,49 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         name_to_dataset_img_paths['Train'] = X_train
 
         return name_to_dataset_img_paths
+
+
+
+    def save_images(self, initial_testing):
+        imgs_names = []
+        imgs_data_set = []
+        name_to_dataset_img_paths = self.train_val_test_split(base_names=False, initial_testing=initial_testing)
+        print(
+            f'Proccesing a tiff should take upto 25 seconds, so loading each image batch should take upto {25 * self.imgs_bulk_size // 60} minutes')
+        for data_set_name, data_set_paths in name_to_dataset_img_paths.items():
+            # if too many imgs to read at once
+            for i in range(0, len(data_set_paths), self.imgs_bulk_size):
+                curr_data_set_paths = data_set_paths[i:i + self.imgs_bulk_size]
+                start = datetime.now()
+                curr_batch_num = i // self.imgs_bulk_size + 1
+                print(
+                    f'Starting to process batch {curr_batch_num} in {data_set_name} set. Current time: {start}')
+                data_sets = data_prepare.separate_data(curr_data_set_paths, self.patch_size_channels_first)
+                print(
+                    f'Loading batch number {curr_batch_num} took: {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
+                brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
+                                                    data_sets)  # costly operation
+
+                start = datetime.now()
+                print(f'Saving images and patches for batch {curr_batch_num}. Current time: {start}')
+                for i, (bf_img, flr_img) in enumerate(zip(brightfield_arr, fluorescent_arr)):
+                    curr_img_name = path.basename(curr_data_set_paths[i]).split('.')[0]
+                    imgs_names.append(curr_img_name)
+                    img_dir = self.build_img_path(self.images_dir_path, data_set_name, 'Brightfield')
+                    if path.exists(utils.get_dir(path.join(img_dir, f'{curr_img_name}.npy'))):
+                        continue
+
+                    self.save_img_and_patches(img=bf_img, img_name=curr_img_name, format='Brightfield',
+                                              data_set=data_set_name)
+                    self.save_img_and_patches(img=flr_img, img_name=curr_img_name, format='Fluorescent',
+                                              data_set=data_set_name)
+                print(
+                    f'Saving images and patches for batch number {curr_batch_num} took {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
+
+                imgs_data_set += [data_set_name] * brightfield_arr.shape[0]
+        self.save_patches_meta_data()
+        img_name_to_dataset = pd.DataFrame(data=dict(Name=imgs_names, Data_Set=imgs_data_set))
+        img_name_to_dataset.to_csv(path_or_buf=self.images_mapping_fpath)
 
     def save_img_and_patches(self, img, img_name, format, data_set):
         img_path = self.build_img_path(self.images_dir_path, data_set, format)
@@ -153,3 +144,21 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
 
     def get_mapping_fpath(self):
         return utils.get_dir(path.join(self.meta_dir_path, 'ImageToLocation.csv'))
+
+    def prep_dirs(self):
+        origin_wd = getcwd()
+        root_dir = utils.DIRECTORY
+        makedirs(root_dir, exist_ok=True)
+        chdir(root_dir)
+
+        makedirs(self.meta_dir_path, exist_ok=True)
+
+        for data_set in ['Train', 'Validation', 'Test']:
+            for data_format in ['Brightfield', 'Fluorescent']:
+                curr_imgs_dir = path.join(self.images_dir_path, data_set, data_format)
+                curr_patches_dir = path.join(self.patches_dir_path, data_set, data_format)
+                makedirs(curr_imgs_dir, exist_ok=True)
+                makedirs(curr_patches_dir, exist_ok=True)
+
+        chdir(origin_wd)
+
