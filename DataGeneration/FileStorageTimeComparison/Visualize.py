@@ -25,7 +25,7 @@ def plot_results(insts, fname='benchmark.png', suptitle='Benchmark result'):
 	height = 0.2
 	twax = ax.twiny()
 	save_times = tuple(inst.save_time * 1000 for inst in insts)
-	load_times = tuple(inst.load_time * 1000 for inst in insts)
+	load_times = tuple(inst.load_time_mean * 1000 for inst in insts)
 	xlim = sorted(save_times)[-5]
 	lsave = ax.barh(indx - 0.3, save_times, height=height, color=next(cm), label='store',
 		xerr=tuple(inst.save_time_std * 1000 for inst in insts))

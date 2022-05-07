@@ -1,6 +1,4 @@
 *.pyc
-*~
+plots/*.png
 *.png
-*.json
 .idea/
-cache/
