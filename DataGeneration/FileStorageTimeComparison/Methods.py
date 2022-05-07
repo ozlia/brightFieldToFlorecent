@@ -2,10 +2,10 @@ from time import time
 import numpy as np
 import h5py
 from numpy import save as np_save, load as np_load, savez
-
-
-# from zarr import save as zarr_save, load as zarr_load,open as zarr_open
-
+from zarr import load as zarr_load, open as zarr_open
+import threading
+from os.path import join
+from time import time as now
 
 class TimeArrStorage(object):
     extension = 'data'
@@ -20,9 +20,9 @@ class TimeArrStorage(object):
     def __str__(self):
         return self.__class__.__name__
 
-    def load_idxs(self, arr_dims, batch_size):  
-        # self.idxs = np.random.choice(a=self.numbers_range, size=1, replace=False)
-        self.idxs = np.random.choice(a=self.numbers_range, size=batch_size, replace=False)
+    def load_idxs(self, arr_dims, batch_size):
+        self.idxs = np.random.choice(a=self.numbers_range, size=2, replace=False)
+        # self.idxs = np.random.choice(a=self.numbers_range, size=batch_size, replace=False)
         self.numbers_range = np.setdiff1d(self.numbers_range, self.idxs)
 
     def save(self, arr, pth):
@@ -34,9 +34,9 @@ class TimeArrStorage(object):
 
     def time_load(self, pth, arr_dims, batch_size):
         self.load_idxs(arr_dims, batch_size)
-        t0 = time()
+        t0 = now()
         self.load(pth)
-        self.load_times.append(time() - t0)
+        self.load_times.append(now() - t0)
 
     @classmethod
     def generate_arr(cls, dims):
@@ -144,29 +144,42 @@ class HDF5Pairs(TimeArrStorage):  # FAN FAVORITE
         return f'{path}_testfile.{HDF5LargeArray.extension}'
 
 
-# class Zarr(TimeArrStorage):
-#     extension = 'zarr'
+class ZARR(TimeArrStorage): 
+    extension = 'zarr'
 
-# def save(self, arr_dims, pth, with_chunks=False):
-#     all_imgs_in_data = TimeArrStorage.generate_arr(arr_dims)
-#     fh = zarr_open('train', mode='w')
-#     train_grp = fh.create_group('train')
-#     train_grp.create_dataset_like(name='brightfield_patches', other=all_imgs_in_data, chunks=with_chunks)
-#     train_grp.create_dataset_like(name='fluorescent_patches', other=all_imgs_in_data, chunks=with_chunks)
-#
-# def load(self, pth):
-#     with h5py.File(pth, 'r') as fh:
-#         brightfield_patches = fh['train']['brightfield_patches'][self.idxs]
-#         fluorescent_patches = fh['train']['fluorescent_patches'][self.idxs]
-#         # Do something with the data, as it is lazy-loaded
-#         _ = brightfield_patches.sum()
-#         _ = fluorescent_patches.sum()
+    def save(self, arr_dims, pth, with_chunks=True):
+        all_imgs_in_data = TimeArrStorage.generate_arr(arr_dims)
+        fname = self.get_fname(pth)
+        fh = zarr_open(fname, mode='w')
+        train_grp = fh.create_group('train')
+        train_grp.create_dataset(name='brightfield_patches', data=all_imgs_in_data, chunks=with_chunks)
+        train_grp.create_dataset(name='fluorescent_patches', data=all_imgs_in_data, chunks=with_chunks)
 
+    def one_process_load(self,pth,idxs,data_format):
+        fname = self.get_fname(pth)
+        fh = zarr_load(fname)
+        patches = fh[join('train',f'{data_format}_patches')][idxs]
+        # patches = fh['train'][f'{data_format}_patches']
+        _ = patches.sum()
+
+    def load(self, pth):
+        brightfield_idxs = self.idxs[:len(self.idxs) // 2]
+        fluorescent_idxs = self.idxs[len(self.idxs) // 2:]
+        brightfield_reader = threading.Thread(target=self.one_process_load,args=(pth,brightfield_idxs,'brightfield',))
+        fluorescent_reader = threading.Thread(target=self.one_process_load,args=(pth,fluorescent_idxs,'fluorescent',))
+        brightfield_reader.start()
+        fluorescent_reader.start()
+        brightfield_reader.join()
+        fluorescent_reader.join()
+
+    def get_fname(self, path):
+        return f'{path}_testfile.{ZARR.extension}'
 
 METHODS = (
     NPY,
-    NPZ,
+    # NPZ,
     # HDF5LargeArray,
     # HDF5AutomatedChunkyLargeArray,
-    # HDF5Pairs
+    # HDF5Pairs,
+    ZARR,
 )
