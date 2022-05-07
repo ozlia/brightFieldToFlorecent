@@ -21,8 +21,8 @@ class TimeArrStorage(object):
         return self.__class__.__name__
 
     def load_idxs(self, arr_dims, batch_size):
-        self.idxs = np.random.choice(a=self.numbers_range, size=2, replace=False)
-        # self.idxs = np.random.choice(a=self.numbers_range, size=batch_size, replace=False)
+        # self.idxs = np.random.choice(a=self.numbers_range, size=2, replace=False)
+        self.idxs = np.random.choice(a=self.numbers_range, size=batch_size, replace=False)
         self.numbers_range = np.setdiff1d(self.numbers_range, self.idxs)
 
     def save(self, arr, pth):
@@ -144,7 +144,7 @@ class HDF5Pairs(TimeArrStorage):  # FAN FAVORITE
         return f'{path}_testfile.{HDF5LargeArray.extension}'
 
 
-class ZARR(TimeArrStorage): 
+class ZARR(TimeArrStorage):
     extension = 'zarr'
 
     def save(self, arr_dims, pth, with_chunks=True):
@@ -177,9 +177,9 @@ class ZARR(TimeArrStorage):
 
 METHODS = (
     NPY,
-    # NPZ,
-    # HDF5LargeArray,
-    # HDF5AutomatedChunkyLargeArray,
-    # HDF5Pairs,
+    NPZ,
+    HDF5LargeArray,
+    HDF5AutomatedChunkyLargeArray,
+    HDF5Pairs,
     ZARR,
 )
