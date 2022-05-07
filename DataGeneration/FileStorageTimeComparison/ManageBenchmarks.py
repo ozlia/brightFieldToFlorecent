@@ -16,7 +16,7 @@ if __name__ == '__main__':  # Manage benchmarks - timing is conducted in seconds
     
     '''
     seed(42)
-    num_batches_in_epoch = 100
+    num_batches_in_epoch = 40
     benchmark_loading_times = []
 
     #if running in cluster :
@@ -30,6 +30,7 @@ if __name__ == '__main__':  # Manage benchmarks - timing is conducted in seconds
         curr_benchmark.run()
         benchmark_loading_times.append(curr_benchmark.load_times)
 
+    print('Saving data to disc')
     benchmark_loading_times = pd.concat(benchmark_loading_times,axis=1)
     for patch_size in Benchmark.patch_sizes:
         cols_by_patch_size = [col for col in benchmark_loading_times.columns if f'patch_size_{patch_size}' in col]
