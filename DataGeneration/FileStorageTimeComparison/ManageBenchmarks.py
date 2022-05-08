@@ -30,8 +30,9 @@ if __name__ == '__main__':  # Manage benchmarks - timing is conducted in seconds
         curr_benchmark.run()
         benchmark_loading_times.append(curr_benchmark.load_times)
 
+    if len(benchmark_loading_times) > 1:
+        benchmark_loading_times = pd.concat(benchmark_loading_times,axis=1)
     print('Saving data to disc')
-    benchmark_loading_times = pd.concat(benchmark_loading_times,axis=1)
     for patch_size in Benchmark.patch_sizes:
         cols_by_patch_size = [col for col in benchmark_loading_times.columns if f'patch_size_{patch_size}' in col]
         benchmark_loading_times_by_patch_size = benchmark_loading_times[cols_by_patch_size]
