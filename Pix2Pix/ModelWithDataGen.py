@@ -8,13 +8,13 @@ from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalizat
 from tensorflow.keras.optimizers import Adam
 from skimage.metrics import peak_signal_noise_ratio as peak_snr, structural_similarity as ssim, \
     mean_squared_error as mse
-
+import sys
 import datetime
 import numpy as np
 import os
 import pandas as pd
 
-from DataGeneration.DataGenPreparation.DataGenPreparation import DataGeneratorPreparation
+from DataGeneration.DataGenPreparation.BasicDataGenPreparation import BasicDataGeneratorPreparation
 from DataGeneration.DataGenerator.DataGenerator import DataGenerator
 
 
@@ -202,13 +202,12 @@ class Pix2Pix:
 
                 self.document_progress(curr_epoch=epoch + 1, total_epochs=epochs, curr_batch=batch_num, d_loss=d_loss,
                                        g_loss=g_loss, start_time=start_time)
-
             fig_name = f'e{epoch}_b{batch_num}.png'
             utils.sample_images(model=self.generator, brightfield_patches=brightfield_batch[:self.num_images_in_sample],
                                 fluorescent_patches=real_fluorescent_batch[:self.num_images_in_sample], fig_name=fig_name,
                                 rescale=False, target_dir=save_target_dir)
 
-        data_gen.on_epoch_end()
+            data_gen.on_epoch_end()
 
     def save_model_and_progress_report(self, target_path):
         target_path = utils.get_dir(target_path)
@@ -269,6 +268,7 @@ class Pix2Pix:
             eval_metrics['pearson'].append(
                 np.corrcoef(real_fluorescent_img.flatten(), fake_fluorescent_img_channels_last.flatten())[0][1])
 
+            print(f'Saving image number {img_i}')
             utils.save_np_as_tiff_v2(img_channels_last=fake_fluorescent_img_channels_last,
                                      fname=f'{curr_img_name}_fake',
                                      target_path=curr_imgs_output_dir)
@@ -278,8 +278,8 @@ class Pix2Pix:
                                    os.path.join(curr_imgs_output_dir, f'{curr_img_name}_fake.png'))
             utils.save_full_2d_pic(real_fluorescent_img[:, :, 0],
                                    os.path.join(curr_imgs_output_dir, f'{curr_img_name}_real.png'))
-
-        pd.DataFrame.from_dict(data=eval_metrics).to_csv(utils.get_dir(os.path.join(root_dir, 'eval.csv')), index=False)
+        print(f'Saving eval metrics')
+        pd.DataFrame.from_dict(data=eval_metrics).to_csv(utils.get_dir(root_dir), index=False)
 
     def print_summary(self):
         self.generator.summary()
@@ -300,8 +300,8 @@ if __name__ == '__main__':
     print_summary = False
 
     # training params
-    batch_size = 128
-    epochs = 50
+    batch_size = 32
+    epochs = 1
     validation_size = 0.0
     test_size = 0.3
     utilize_patchGAN = False
@@ -319,16 +319,16 @@ if __name__ == '__main__':
     gan = Pix2Pix(patch_size_channels_last=patch_size_channels_last, batch_size=batch_size, print_summary=print_summary,
                   utilize_patchGAN=utilize_patchGAN)
 
-    dgp = DataGeneratorPreparation(img_size_channels_first=img_size_channels_first,
+    dgp = BasicDataGeneratorPreparation(img_size_channels_first=img_size_channels_first,
                                    patch_size_channels_last=patch_size_channels_last, org_type=org_type,
                                    resplit=False, validation_size=validation_size,
                                    test_size=test_size, initial_testing=first_time_testing_if_works)
-    train_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type),
+    train_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type),num_epochs=epochs,
                                    batch_size=batch_size, num_patches_in_img=num_patches_in_img
-                                   , data_set='Train')
-    test_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type),
+                                   , data_set_type='Train')
+    test_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type),num_epochs=epochs,
                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img
-                                  , data_set='Test')
+                                  , data_set_type='Test')
     # if validation_size > 0:
     #     validation_data_gen = DataGenerator(patches_path=utils.get_dir(dgp.patches_dir_path),
     #                                                       batch_size=batch_size,

@@ -8,8 +8,8 @@ seed = 42
 np.random.seed = seed
 
 
-class DataGenerator(keras.utils.Sequence):
-    def __init__(self, data_root_path, num_epochs, batch_size, num_patches_in_img, data_set_type='Train',
+class DataGeneratorDeprecatedRNG(keras.utils.Sequence):
+    def __init__(self, data_root_path, batch_size, num_patches_in_img, data_set_type='Train',
                  data_format_in_disc='npy'):
         # self.fluorescent_paths = os.listdir(os.path.join(patches_path, data_set, 'Fluorescent'))
         patches_root_dir = os.path.join(data_root_path, 'Patches', data_set_type)
@@ -26,37 +26,37 @@ class DataGenerator(keras.utils.Sequence):
 
         # Change if you want to return a brightfield img on test set or brightfield patches
         self.send_brightfield_img = False
-        self.num_epochs_passed = 0
-        idx_matrix_shape = (num_epochs, self.num_batches_in_epoch,batch_size)
-        self.idx_matrix = np.random.randint(low=0, high=len(self.brightfield_patches_paths),
-                                            size=idx_matrix_shape).reshape(idx_matrix_shape)
-
-    @property
-    def num_batches_in_epoch(self):
-        return len(self.brightfield_patches_paths) // self.batch_size + 1
 
     def __len__(self):
-        return len(self.brightfield_imgs_paths) if self.data_set_type == 'Test' else self.num_batches_in_epoch
+        num_patches_all_imgs = len(self.brightfield_patches_paths)
+        if self.data_set_type == 'Test':  # num imgs
+            return num_patches_all_imgs // self.num_patches_in_img
+        else:  # num_batches in epoch
+            return num_patches_all_imgs // self.batch_size
 
-    def __getitem__(self, batch_i):
+    def __getitem__(self, idx):
         # assert idx < len(self), f"Expected {len(self)} batches in epoch, received {idx}"
 
         if self.data_set_type == 'Test':  # get consecutive brightfield patches and one matching floro img
             if self.send_brightfield_img:
-                brightfield_patches_batch = np.load(self.brightfield_imgs_paths[batch_i])
+                brightfield_patches_batch = np.load(self.brightfield_imgs_paths[idx])
             else:
-                brightfield_img_patches_paths = self.brightfield_patches_paths[
-                                                batch_i * self.num_patches_in_img: (batch_i + 1) * self.num_patches_in_img]
-                brightfield_patches_batch = np.array(
-                    [np.load(patch_path) for patch_path in brightfield_img_patches_paths])
+                brightfield_patches_batch = []
+                sampled_indexes = self.idx_array[
+                                  idx * self.num_patches_in_img: (idx + 1) * self.num_patches_in_img]
+                for img_idx in sampled_indexes:
+                    curr_brightfield = np.load(self.brightfield_patches_paths[img_idx])
+                    brightfield_patches_batch.append(curr_brightfield)
+                brightfield_patches_batch = np.array(brightfield_patches_batch)
 
-            fluorescent_img = np.load(self.fluorescent_imgs_paths[batch_i])
+            fluorescent_img = np.load(self.fluorescent_imgs_paths[idx])
             return brightfield_patches_batch, fluorescent_img
 
         else:  # get random patches from any number of images
             fluorescent_patches_batch = []
             brightfield_patches_batch = []
-            sampled_indexes = self.idx_matrix[self.num_epochs_passed, batch_i, :]
+            sampled_indexes = np.random.choice(self.idx_array, self.batch_size, replace=False)
+            np.delete(self.idx_array, sampled_indexes)
 
             for img_idx in sampled_indexes:
                 curr_brightfield = np.load(self.brightfield_patches_paths[img_idx])
@@ -71,7 +71,7 @@ class DataGenerator(keras.utils.Sequence):
             return np.array(brightfield_patches_batch), np.array(fluorescent_patches_batch)
 
     def on_epoch_end(self):
-        self.num_epochs_passed += 1
+        self.idx_array = np.arange(start=0, stop=len(self.brightfield_patches_paths), step=1)
 
     def augment_images(self, arr):
         # dtype='float16 or float64 depending on prep'

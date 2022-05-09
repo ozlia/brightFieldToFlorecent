@@ -10,7 +10,7 @@ import utils
 import data_prepare
 
 
-class DataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation
+class BasicDataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation
     def __init__(self, img_size_channels_first, patch_size_channels_last, org_type, resplit=False,
                  validation_size=0.0, test_size=0.3, initial_testing=False):
         assert type(
@@ -27,7 +27,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.patch_size_channels_last = patch_size_channels_last
         self.patch_size_channels_first = patch_size_channels_last[::-1]  # assuming patch is square
 
-        self.imgs_bulk_size = 150
+        self.imgs_bulk_size = 25
         self.seed = 42
 
         self.patches_dir_path = path.join(self.org_type, 'Patches')
@@ -37,6 +37,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.patches_meta_data_fpath = self.get_meta_data_fpath()
 
         self.prepare_images_in_disc_save_only(initial_testing)
+        # self.prepare_images_in_disc(resplit)  # flexible incase we don't want to initiate this with DataGeneratorPrep
 
     def prepare_images_in_disc_save_only(self, initial_testing):
         if path.exists(utils.get_dir(self.images_dir_path)):
@@ -68,8 +69,6 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         name_to_dataset_img_paths['Train'] = X_train
 
         return name_to_dataset_img_paths
-
-
 
     def save_images(self, initial_testing):
         imgs_names = []
