@@ -16,7 +16,8 @@ if __name__ == '__main__':  # Manage benchmarks - timing is conducted in seconds
     
     '''
     seed(42)
-    num_batches_in_epoch = 40
+    # num_batches_in_epoch = 40
+    num_batches_in_epoch = 2
     benchmark_loading_times = []
 
     #if running in cluster :

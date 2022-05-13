@@ -27,8 +27,9 @@ class DataGenerator(keras.utils.Sequence):
         # Change if you want to return a brightfield img on test set or brightfield patches
         self.send_brightfield_img = False
         self.num_epochs_passed = 0
-        idx_matrix_shape = (num_epochs, self.num_batches_in_epoch,batch_size)
-        self.idx_matrix = np.random.randint(low=0, high=len(self.brightfield_patches_paths),
+        idx_matrix_shape = (num_epochs, self.num_batches_in_epoch, batch_size)
+        # To ensure each image is sampled uniformly over the entire training duration
+        self.idx_matrix = np.random.uniform(low=0, high=len(self.brightfield_patches_paths),
                                             size=idx_matrix_shape).reshape(idx_matrix_shape)
 
     @property
@@ -46,7 +47,8 @@ class DataGenerator(keras.utils.Sequence):
                 brightfield_patches_batch = np.load(self.brightfield_imgs_paths[batch_i])
             else:
                 brightfield_img_patches_paths = self.brightfield_patches_paths[
-                                                batch_i * self.num_patches_in_img: (batch_i + 1) * self.num_patches_in_img]
+                                                batch_i * self.num_patches_in_img: (
+                                                                                               batch_i + 1) * self.num_patches_in_img]
                 brightfield_patches_batch = np.array(
                     [np.load(patch_path) for patch_path in brightfield_img_patches_paths])
 

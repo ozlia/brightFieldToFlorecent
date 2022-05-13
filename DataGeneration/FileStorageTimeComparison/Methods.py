@@ -2,10 +2,12 @@ from time import time
 import numpy as np
 import h5py
 from numpy import save as np_save, load as np_load, savez
-from zarr import load as zarr_load, open as zarr_open,ProcessSynchronizer as zarr_sync,open_array as zarr_open_arr,array as zarr_arr
+from zarr import load as zarr_load, open as zarr_open, ProcessSynchronizer as zarr_sync, open_array as zarr_open_arr, \
+    array as zarr_arr
 import threading
 from os.path import join
 from time import time as now
+import tables
 
 
 class TimeArrStorage(object):
@@ -22,9 +24,9 @@ class TimeArrStorage(object):
         return self.__class__.__name__
 
     def load_idxs(self, batch_size):
-        # self.idxs = np.random.choice(a=self.numbers_range, size=2, replace=False)
+        self.idxs = np.random.choice(a=self.numbers_range, size=2, replace=False)
         # sorted for HDF5
-        self.idxs = sorted(np.random.choice(a=self.numbers_range, size=batch_size, replace=False))
+        # self.idxs = sorted(np.random.choice(a=self.numbers_range, size=batch_size, replace=False))
         self.numbers_range = np.setdiff1d(self.numbers_range, self.idxs)
 
     def save(self, arr, pth):
@@ -145,6 +147,46 @@ class HDF5CustomChunksLargeArray(HDF5LargeArray):
         super(HDF5CustomChunksLargeArray, self).save(arr_dims, pth, with_chunks=(1,) + arr_dims[1:])
 
 
+class Pytables(TimeArrStorage):
+    extension = 'hdf5'
+
+    def save(self, arr_dims, pth):
+        all_imgs_in_data = TimeArrStorage.generate_arr(arr_dims)
+        fname = self.get_fname(pth)
+        pytables_file = tables.open_file(fname, mode='w')
+        try:
+            atom = tables.Atom.from_dtype(all_imgs_in_data.dtype)
+            shape = (0,) + all_imgs_in_data.shape
+            pytables_brightfield = pytables_file.create_earray(where=pytables_file.root,name= 'brightfield',
+                                                              atom=atom,
+                                                              shape=shape,
+                                                              expectedrows=len(all_imgs_in_data))
+            pytables_fluorescent = pytables_file.create_earray(where=pytables_file.root, name='fluorescent',
+                                                              atom=atom,
+                                                              shape=shape,
+                                                              expectedrows=len(all_imgs_in_data))
+
+            pytables_brightfield.append(np.expand_dims(all_imgs_in_data,axis=0))
+            pytables_fluorescent.append(np.expand_dims(all_imgs_in_data,axis=0))
+        finally:
+            pytables_file.close()
+
+    def load(self, pth):
+        fname = self.get_fname(pth)
+        pytables_file =tables.open_file(fname, mode='r')
+        try:
+            for idx in self.idxs:
+                brightfield_patches = pytables_file.root.brightfield[idx]
+                fluorescent_patches = pytables_file.root.fluorescent[idx]
+            # Do something with the data, as it is lazy-loaded
+            _ = brightfield_patches.sum()
+            _ = fluorescent_patches.sum()
+        finally:
+            pytables_file.close()
+
+    def get_fname(self, path):
+        return f'{path}_pytables_testfile.{Pytables.extension}'
+
 # class ZARR(TimeArrStorage): #TODO too complicated, not worth the effort
 #     extension = 'zarr'
 #
@@ -179,12 +221,11 @@ class HDF5CustomChunksLargeArray(HDF5LargeArray):
 #         return f'{path}_testfile.{ZARR.extension}'
 
 
-METHODS = (
-    NPY,
-    NPZ,
-    HDF5LargeArray,
-    HDF5CustomChunksLargeArray,
-    HDF5Pairs,
-    # ZARR,
-    # ZARRCustomChunks,
-)
+METHODS = [
+    # NPY,
+    # NPZ,
+    # HDF5LargeArray,
+    # HDF5CustomChunksLargeArray,
+    # HDF5Pairs,
+    Pytables
+]
