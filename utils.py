@@ -9,6 +9,8 @@ from sklearn.preprocessing import normalize
 from tensorflow import transpose
 import imageio
 from metrics.metrics import np_corr
+from datetime import datetime
+from tifffile import imsave as save_tiff
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
@@ -19,6 +21,11 @@ def set_dir(name):
     DIRECTORY = "%s/%s" % (DIRECTORY, name)
     if not os.path.exists(DIRECTORY):
         os.makedirs(DIRECTORY)
+def get_dir(dir_path):
+    return os.path.join(DIRECTORY, dir_path)
+
+def get_dir(dir_path):
+    return os.path.join(DIRECTORY, dir_path)
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY
@@ -116,28 +123,25 @@ def transform_dimensions(array, new_shape_indexes):
     return np.array(transpose(array, new_shape_indexes))
 
 
-def sample_images(model, brightfield_imgs, fluorescent_imgs, fig_name, rescale=False, org_type=None):
-    assert len(brightfield_imgs.shape) == len(
-        fluorescent_imgs.shape) == 4, f"You must send a 4D array of brightfield and fluorescent images\nArrays shapes received:\n\tBrightfield: {brightfield_imgs.shape}\n\tFluorescent: {fluorescent_imgs.shape}"
+def sample_images(model, brightfield_patches, fluorescent_patches, target_dir, fig_name, rescale=False):
+    assert len(brightfield_patches.shape) == len(
+        fluorescent_patches.shape) == 4, f"Expected 4D array of brightfield and fluorescent images\nArrays shapes received:\n\tBrightfield: {brightfield_patches.shape}\n\tFluorescent: {fluorescent_patches.shape}"
 
-    imgs_path = 'sampled_images'
-    if org_type is not None:
-        imgs_path = os.path.join(org_type, imgs_path)
-    images_root_dir = os.path.join(DIRECTORY, imgs_path)
-    os.makedirs(images_root_dir, exist_ok=True)
+    samples_path = get_dir(os.path.join(target_dir, 'Samples'))
+    os.makedirs(samples_path, exist_ok=True)
 
-    rows = brightfield_imgs.shape[0]  # 3 is recommended
-    cols = 3  # always brightfield,gen fluorescent,fluorescent
+    rows = brightfield_patches.shape[0]  # 3 is recommended
+    cols = 3  # always brightfield,fake fluorescent,fluorescent
 
-    gen_fluorescent = model.predict(brightfield_imgs)
+    gen_fluorescent = model.predict(brightfield_patches)
     gen_imgs = np.concatenate(
-        [brightfield_imgs[:, :, :, 0], np.squeeze(gen_fluorescent[:, :, :, 0]), fluorescent_imgs[:, :, :, 0]])
+        [brightfield_patches[:, :, :, 0], np.squeeze(gen_fluorescent[:, :, :, 0]), fluorescent_patches[:, :, :, 0]])
 
     # TODO Rescale images 0 - 1 not sure if necessary
     if rescale:
         gen_imgs = 0.5 * gen_imgs + 0.5
 
-    titles = ['brightfield', 'gen fluorescent', 'real fluorescent']
+    titles = ['Brightfield', 'Fake Fluorescent', 'Real Fluorescent']
     fig, axs = plt.subplots(rows, cols)
     cnt = 0
     for i in range(rows):
@@ -146,9 +150,8 @@ def sample_images(model, brightfield_imgs, fluorescent_imgs, fig_name, rescale=F
             axs[i, j].set_title(titles[i])
             axs[i, j].axis('off')
             cnt += 1
-    fig_path = os.path.join(images_root_dir, fig_name)
+    fig_path = os.path.join(samples_path, fig_name)
     fig.savefig(fig_path)
-    # plt.show()
     plt.close()
 
 
@@ -178,3 +181,31 @@ def calculate_pearson_for_all_images(model, data_input, data_output, time, model
     file.writelines([time, "\n", model_name, "\n", organelle[:-1], "\n", results])
     print(results)
     print("------------------------------------------------------")
+
+def get_usernames(curr_user_first=True):
+    usernames = ['naorsu', 'tomrob', 'ozlia', 'omertag']
+    if curr_user_first:
+        usernames.insert(usernames.pop(usernames.index(USER)))
+    return usernames
+
+
+def get_time_diff_minutes(first, second):
+    assert type(first) == datetime, f'Expected datetime type, received {type(first)}'
+    assert type(second) == datetime, f'Expected datetime type, received {type(second)}'
+    return ((first - second).total_seconds() // 60) + 1
+
+
+def save_np_as_tiff_v2(img_channels_last, fname, target_path):
+    output_path = get_dir(target_path)
+    os.makedirs(output_path, exist_ok=True)
+
+    if img_channels_last.dtype == 'float64':
+        img_channels_last.astype(dtype='float32',
+                                 casting='same_kind')  # must reduce representation due to ImageJ requirement
+
+    origin_dir = os.getcwd()
+    os.chdir(output_path)
+
+    save_tiff(file=f'{fname}.tiff', data=img_channels_last)  # if interesting we have ImageJ param too
+
+    os.chdir(origin_dir)

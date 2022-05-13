@@ -7,4 +7,5 @@ pip install matplotlib
 pip install patchify
 pip install -U scikit-learn
 pip install imageio
+pip install tiffile
 conda deactivate
