@@ -87,15 +87,3 @@ def predict_on_imgs(model, imgs, patch_dims):  # assuming img dims are (1,patch_
             patch[0] = model.predict(patch)[0]
     size = imgs[0].shape
     return utils.unpatchify(patches, size)
-
-
-def predict_on_patches(model, patches: np.array, img_size_channels_last):  # assuming img dims are (1,patch_dims)
-    fake_fluorescent_patches = []
-    for patch in patches:
-        patch = np.expand_dims(patch, axis=0)
-        fake_fluorescent_patches.append(model.predict(patch))
-    fake_fluorescent_patches = np.reshape(np.array(fake_fluorescent_patches), newshape=(5, 7, 1,) + patches[
-        0].shape)  # (35,patch_size) -> ((5, 7, 1, patch_size)
-    fake_fluorescent_img_channels_last = utils.unpatchify(fake_fluorescent_patches, img_size_channels_last)
-    # fake_fluorescent_img_channels_first = np.moveaxis(fake_fluorescent_img_channels_last, -1, 0)
-    return fake_fluorescent_img_channels_last

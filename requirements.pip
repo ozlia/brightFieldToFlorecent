@@ -1,0 +1,8 @@
+opencv-python
+aicsimageio
+matplotlib
+patchify
+scikit-learn
+imageio
+zarr
+tiffile
