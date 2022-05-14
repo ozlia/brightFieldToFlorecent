@@ -1,3 +1,4 @@
+import gc
 import json
 import shutil
 from datetime import datetime
@@ -28,7 +29,7 @@ class BasicDataGeneratorPreparation:  # better as a class - can be easily replac
         self.patch_size_channels_first = patch_size_channels_last[::-1]  # assuming patch is square
 
         self.imgs_bulk_size = 25
-        self.seed = 42
+        self.seed = 3
 
         self.patches_dir_path = path.join(self.org_type, 'Patches')
         self.images_dir_path = path.join(self.org_type, 'Images')
@@ -61,7 +62,9 @@ class BasicDataGeneratorPreparation:  # better as a class - can be easily replac
         X_train, X_test = train_test_split(imgs_paths, test_size=self.test_size,
                                            random_state=self.seed,
                                            shuffle=True)
+
         name_to_dataset_img_paths['Test'] = X_test
+
         if self.val_size > 0:
             X_train, X_val = train_test_split(X_train, test_size=self.val_size, random_state=self.seed)
             name_to_dataset_img_paths['Validation'] = X_test
@@ -89,7 +92,8 @@ class BasicDataGeneratorPreparation:  # better as a class - can be easily replac
                     f'Loading batch number {curr_batch_num} took: {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
                 brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
                                                     data_sets)  # costly operation
-
+                data_sets = None
+                gc.collect()
                 start = datetime.now()
                 print(f'Saving images and patches for batch {curr_batch_num}. Current time: {start}')
                 for i, (bf_img, flr_img) in enumerate(zip(brightfield_arr, fluorescent_arr)):

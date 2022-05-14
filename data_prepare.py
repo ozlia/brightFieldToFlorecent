@@ -37,7 +37,8 @@ def separate_data(fovs, img_size, multiply_img_z=1):
     bright_field = []
     fluorescent = []
     z, y, x = img_size
-    for tiff in fovs:
+    for i,tiff in enumerate(fovs):
+        print(f'working on tiff number {i}')
         reader = AICSImage(tiff)
         img = reader.data
 

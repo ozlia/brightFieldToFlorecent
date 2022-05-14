@@ -28,7 +28,7 @@ class DataGeneratorPreparation:  # better as a class - can be easily replaced wi
         self.patch_size_channels_first = patch_size_channels_last[::-1]  # assuming patch is square
 
         self.imgs_bulk_size = 25
-        self.seed = 42
+        self.seed = 3
 
         self.patches_dir_path = path.join(self.org_type, 'Patches')
         self.images_dir_path = path.join(self.org_type, 'Images')

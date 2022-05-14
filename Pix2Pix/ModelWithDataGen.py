@@ -14,8 +14,10 @@ import numpy as np
 import os
 import pandas as pd
 
+from DataGeneration.DataGen import DataGenerator
 from DataGeneration.DataGenPreparation.BasicDataGenPreparation import BasicDataGeneratorPreparation
-from DataGeneration.DataGenerator.DataGenerator import DataGenerator
+from DataGeneration.TestDataGen import TestDataGenerator
+from DataGeneration.TrainDataGen import TrainDataGenerator
 
 
 class P2P_Discriminator():
@@ -317,7 +319,7 @@ if __name__ == '__main__':
     batch_size = 32
     epochs = 1
     validation_size = 0.0
-    test_size = 0.3
+    test_size = 0.15
     utilize_patchGAN = False
     # nImages_to_sample = 3 #TODO insert into DataGen
 
@@ -337,21 +339,22 @@ if __name__ == '__main__':
                                         patch_size_channels_last=patch_size_channels_last, org_type=org_type,
                                         resplit=False, validation_size=validation_size,
                                         test_size=test_size, initial_testing=first_time_testing_if_works)
-    train_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type), num_epochs=epochs,
-                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img
-                                   , data_set_type='Train')
-    test_data_gen = DataGenerator(data_root_path=utils.get_dir(org_type), num_epochs=epochs,
-                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img
-                                  , data_set_type='Test')
+
+
+    print('done saving, starting to allocate data gens')
+    train_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
+                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img)
+    test_data_gen = TestDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
+                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img)
     # if validation_size > 0:
-    #     validation_data_gen = DataGenerator(patches_path=utils.get_dir(dgp.patches_dir_path),
-    #                                                       batch_size=batch_size,
-    #                                                       patch_size=patch_size, data_set='Validation')
+    #     validation_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
+    #                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img)
     # else:
     #     validation_data_gen = None
 
     output_path = os.path.join(org_type, 'Output')
 
+    print('starting to train')
     gan.custom_train_on_batch(epochs=epochs, data_gen=train_data_gen, save_target_dir=output_path)
     gan.predict_and_save_eval(test_data_gen=test_data_gen, target_dir=output_path,
                               img_size_channels_last=img_size_channels_last)

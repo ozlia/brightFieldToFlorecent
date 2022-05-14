@@ -3,33 +3,48 @@ from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 import os
 from glob import glob
+import pandas as pd
 
-seed = 42
+seed = 3
 np.random.seed = seed
 
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, data_root_path, num_epochs, batch_size, num_patches_in_img, data_set_type='Train',
+    def __init__(self, data_root_path, meta_data_fpath, num_epochs, batch_size, num_patches_in_img,
+                 data_set_type='Train',
                  data_format_in_disc='npy'):
-        # self.fluorescent_paths = os.listdir(os.path.join(patches_path, data_set, 'Fluorescent'))
-        patches_root_dir = os.path.join(data_root_path, 'Patches', data_set_type)
-        imgs_root_dir = os.path.join(data_root_path, 'Images', data_set_type)
-        self.brightfield_patches_paths = glob(os.path.join(patches_root_dir, 'Brightfield', f'*.{data_format_in_disc}'))
-        self.fluorescent_patches_paths = glob(os.path.join(patches_root_dir, 'Fluorescent', f'*.{data_format_in_disc}'))
-        self.brightfield_imgs_paths = glob(os.path.join(imgs_root_dir, 'Brightfield', f'*.{data_format_in_disc}'))
-        self.fluorescent_imgs_paths = glob(os.path.join(imgs_root_dir, 'Fluorescent', f'*.{data_format_in_disc}'))
+        self.num_patches_in_img = num_patches_in_img
+        self.set_paths(data_root_path, meta_data_fpath, data_set_type, data_format_in_disc)
 
         self.idx_array = np.arange(start=0, stop=len(self.brightfield_patches_paths), step=1)
         self.batch_size = batch_size
-        self.num_patches_in_img = num_patches_in_img
         self.data_set_type = data_set_type
 
         # Change if you want to return a brightfield img on test set or brightfield patches
         self.send_brightfield_img = False
         self.num_epochs_passed = 0
-        idx_matrix_shape = (num_epochs, self.num_batches_in_epoch,batch_size)
+        idx_matrix_shape = (num_epochs, self.num_batches_in_epoch, batch_size)
         self.idx_matrix = np.random.randint(low=0, high=len(self.brightfield_patches_paths),
                                             size=idx_matrix_shape).reshape(idx_matrix_shape)
+
+    def set_paths(self, data_root_path, meta_data_fpath, data_set_type, data_format_in_disc):
+        img_name_to_dataset = pd.read_csv(meta_data_fpath)
+        img_name_to_dataset = img_name_to_dataset.loc[img_name_to_dataset['Data_Set'] == data_set_type]
+
+        fix_naming_imgs = lambda root_path, data_format: [
+            os.path.join(root_path, data_format, f'{name}.{data_format_in_disc}') for name in
+            img_name_to_dataset['Name']]
+        fix_naming_patches = lambda root_path, data_format: [
+            os.path.join(root_path, data_format, f'{name}_{i}.{data_format_in_disc}') for name in
+            img_name_to_dataset['Name'] for i in range(self.num_patches_in_img)]
+
+        patches_root_dir = os.path.join(data_root_path, 'Patches', data_set_type)
+        imgs_root_dir = os.path.join(data_root_path, 'Images', data_set_type)
+
+        self.brightfield_patches_paths = fix_naming_patches(patches_root_dir, 'Brightfield')
+        self.fluorescent_patches_paths = fix_naming_patches(patches_root_dir, 'Fluorescent')
+        self.brightfield_imgs_paths = fix_naming_imgs(imgs_root_dir, 'Brightfield')
+        self.fluorescent_imgs_paths = fix_naming_imgs(imgs_root_dir, 'Fluorescent')
 
     @property
     def num_batches_in_epoch(self):
@@ -46,7 +61,8 @@ class DataGenerator(keras.utils.Sequence):
                 brightfield_patches_batch = np.load(self.brightfield_imgs_paths[batch_i])
             else:
                 brightfield_img_patches_paths = self.brightfield_patches_paths[
-                                                batch_i * self.num_patches_in_img: (batch_i + 1) * self.num_patches_in_img]
+                                                batch_i * self.num_patches_in_img: (
+                                                                                               batch_i + 1) * self.num_patches_in_img]
                 brightfield_patches_batch = np.array(
                     [np.load(patch_path) for patch_path in brightfield_img_patches_paths])
 
