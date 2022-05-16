@@ -277,8 +277,8 @@ def run_with_data_gen(dir, model_name, epochs=200, batch_size=32, read_img=False
     utils.reset_dir()
 
 
-
-def run_all_orgs(selected_model_name: str, best_orgs_dict: dict):
+def run_all_orgs(selected_model_name: str, best_orgs_dict: dict,
+                 epochs=100, batch_size=32, read_img=True, img_read_limit=150, multiply_img_z=2):
     """
     Params:
     selected_model - name of the model
@@ -303,8 +303,8 @@ def run_all_orgs(selected_model_name: str, best_orgs_dict: dict):
 
         model_dir = "/%s_%s_%s/" % (selected_model_name, organelle, model_date) if model_date else None
 
-        run(dir="%s_%s" % (selected_model_name, organelle), model_name=selected_model_name, epochs=50, batch_size=32,
-            read_img=True, org_type=organelle, img_read_limit=120, load_model_date=model_dir, multiply_img_z=2)
+        run(dir="%s_%s" % (selected_model_name, organelle), model_name=selected_model_name, epochs=epochs, batch_size=batch_size,
+            read_img=read_img, org_type=organelle, img_read_limit=img_read_limit, load_model_date=model_dir, multiply_img_z=multiply_img_z)
 
         done_org = "***** Done organelle: %s *****" % organelle
         print(len(done_org) * "*")
@@ -334,7 +334,8 @@ if __name__ == '__main__':
          "Nuclear-envelope": None
     }
 
-    run_all_orgs(selected_model, best_orgs)
+    run_all_orgs(selected_model, best_orgs,
+                 epochs=100, batch_size=32, read_img=True, img_read_limit=250, multiply_img_z=2)
 
     # run_with_data_gen(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=10, batch_size=64,
     #                   org_type=organelle, load_model_date=None, over_lap=1, multiply_img_z=1)
