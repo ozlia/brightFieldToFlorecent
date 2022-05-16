@@ -21,11 +21,10 @@ def set_dir(name):
     DIRECTORY = "%s/%s" % (DIRECTORY, name)
     if not os.path.exists(DIRECTORY):
         os.makedirs(DIRECTORY)
-def get_dir(dir_path):
-    return os.path.join(DIRECTORY, dir_path)
 
 def get_dir(dir_path):
     return os.path.join(DIRECTORY, dir_path)
+
 
 def save_entire_patch_series(input_patches, output_patches):
     global DIRECTORY

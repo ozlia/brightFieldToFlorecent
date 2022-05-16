@@ -1,7 +1,12 @@
+import numpy as np
+
 import data_prepare
 from sklearn.model_selection import train_test_split
 import utils
 from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
+from DataGeneration.DataGenPreparation.BasicDataGenPreparation import BasicDataGeneratorPreparation
+from DataGeneration.DataGenerator.TestDataGen import TestDataGenerator
+from DataGeneration.DataGenerator.TrainDataGen import TrainDataGenerator
 from Img2ImgAE.autoEncoder import AutoEncoder
 from datetime import datetime
 import tensorflow as tf
@@ -12,18 +17,19 @@ from argparse import ArgumentParser
 # from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
 from UNET.Unet import Unet
 
+
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
 # interpreter_path_omer  = /home/omertag/.conda/envs/my_env/bin/python
 
 METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
-IMG_SIZE = (3, 64, 64)  # (x,y,z)
-
+PATCH_SIZE = (3, 64, 64)  # (x,y,z)
+FULL_IMG_SIZE = (3, 640, 896)
 
 def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=None, img_read_limit=150,
         load_model_date=None, over_lap=1, multiply_img_z=1):
 
     utils.set_dir(dir)
-    img_size_rev = (IMG_SIZE[1], IMG_SIZE[2], IMG_SIZE[0])
+    patch_size_rev = (PATCH_SIZE[1], PATCH_SIZE[2], PATCH_SIZE[0])
     start = datetime.now()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print("reading images")
@@ -32,7 +38,7 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
         if not org_type[-1] == "/":
             org_type = org_type + "/"
         data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=img_read_limit),
-                                                             IMG_SIZE, multiply_img_z=multiply_img_z)
+                                                             PATCH_SIZE, multiply_img_z=multiply_img_z)
         utils.save_numpy_array(data_input, "input_images_after_data_prepare_norm")
         utils.save_numpy_array(data_output, "output_images_after_data_prepare_norm")
         print("Saved successfully numpy array at %s" % utils.DIRECTORY)
@@ -46,8 +52,8 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
 
     train_x, test_x, train_y, test_y = train_test_split(data_input, data_output, test_size=0.1, random_state=3,
                                                         shuffle=True)
-    patches_train_x = utils.utils_patchify(train_x, img_size_rev, resize=True, over_lap_steps=over_lap)
-    patches_train_y = utils.utils_patchify(train_y, img_size_rev, resize=True, over_lap_steps=over_lap)
+    patches_train_x = utils.utils_patchify(train_x, patch_size_rev, resize=True, over_lap_steps=over_lap)
+    patches_train_y = utils.utils_patchify(train_y, patch_size_rev, resize=True, over_lap_steps=over_lap)
 
     stop = datetime.now()
     print('Done Reading and Patching, Time: ', stop - start)
@@ -56,7 +62,7 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
     KB.clear_session()
 
     print("init model")
-    model = create_model(model_name, img_size_rev=img_size_rev, epochs=epochs, batch_size=batch_size)
+    model = create_model(model_name, patch_size_rev=patch_size_rev, epochs=epochs, batch_size=batch_size)
 
     if not load_model_date:
         print("training model")
@@ -147,7 +153,7 @@ def organelle_list():
         print(', '.join(all_org[i:i + 3]))
 
 
-def create_model(name: str, img_size_rev, epochs, batch_size):
+def create_model(name: str, patch_size_rev, epochs, batch_size):
     '''
     name - Must be lower case in this function!!!
     '''
@@ -155,13 +161,13 @@ def create_model(name: str, img_size_rev, epochs, batch_size):
     name = name.lower()
 
     if name == "img2img":
-        return AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size)
+        return AutoEncoder(patch_size_rev, epochs=epochs, batch_size=batch_size)
     elif name == "b2b":
-        return AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size)
+        return AutoEncoderCrossDomain(patch_size_rev, epochs=epochs, batch_size=batch_size)
     elif name == "f2f":
-        return AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size)
+        return AutoEncoderCrossDomain(patch_size_rev, epochs=epochs, batch_size=batch_size)
     elif name == "unet":
-        return Unet(img_size_rev, epochs=epochs, batch_size=batch_size),
+        return Unet(patch_size_rev, epochs=epochs, batch_size=batch_size)
     elif name == "pix2pix":
         return None
     else:
@@ -195,6 +201,83 @@ def parse_command_line():
         read_img=args.read_img, org_type=args.org_type[0], img_read_limit=args.read_limit)
 
 
+def run_with_data_gen(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=None, img_read_limit=150,
+        load_model_date=None, over_lap=1, multiply_img_z=1):
+    utils.set_dir(dir)
+    img_size_rev = (PATCH_SIZE[1], PATCH_SIZE[2], PATCH_SIZE[0])
+    start = datetime.now()
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+    print("reading images")
+
+    validation_size = 0.0
+    test_size = 0.15
+    first_time_testing_if_works = False
+    num_patches_in_img = (FULL_IMG_SIZE[1] // img_size_rev[0]) * (FULL_IMG_SIZE[2] // img_size_rev[1])
+
+    dgp = BasicDataGeneratorPreparation(img_size_channels_first=FULL_IMG_SIZE,
+                                        patch_size_channels_last=img_size_rev, org_type=org_type,
+                                        resplit=False, validation_size=validation_size,
+                                        test_size=test_size, initial_testing=first_time_testing_if_works)
+    print('done saving, starting to allocate data gens')
+    train_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,
+                                        data_root_path=utils.get_dir(org_type), num_epochs=epochs,
+                                        batch_size=batch_size, num_patches_in_img=num_patches_in_img)
+    test_data_gen = TestDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,
+                                      data_root_path=utils.get_dir(org_type), num_epochs=epochs,
+                                      batch_size=batch_size, num_patches_in_img=num_patches_in_img)
+
+    stop = datetime.now()
+    print('Done Reading and Patching, Time: ', stop - start)
+
+    # Free up RAM in case the model definition cells were run multiple times
+    KB.clear_session()
+
+    print("init model")
+    model = create_model(model_name, patch_size_rev=img_size_rev, epochs=epochs, batch_size=batch_size)
+
+    if not load_model_date:
+        print("training model")
+        model.train(train_x=train_data_gen, train_label=None, val_set=0.1, model_dir=dir)
+        stop = datetime.now()
+        print('Done Train, Time: ', stop - start)
+
+    else:
+        print("Loading model .....")
+        model.load_model(model_dir=load_model_date)
+        stop = datetime.now()
+        print('Done Load, Time: ', stop - start)
+
+    save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
+
+    br_path = test_data_gen.brightfield_imgs_paths
+    fl_path = test_data_gen.fluorescent_imgs_paths
+    test_x = []
+    test_y = []
+    for br_img, fl_img in zip(br_path, fl_path):
+        test_x.append(np.load(br_img))
+        test_y.append(np.load(fl_img))
+    test_x = np.array(test_x)
+    test_y = np.array(test_y)
+
+    utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100],
+                                           model_name=model_name, time=save_time, organelle=org_type)
+
+    print("Generate new pic")
+    predicted_img = model.predict([test_x[0]])
+    predicted_img_smooth = model.predict_smooth([test_x[0]])  # only if you implanted smooth predict
+    print("Saving .........")
+    utils.save_np_as_tiff(predicted_img, save_time, "predict", model_name)
+    utils.save_np_as_tiff(predicted_img_smooth, save_time, "predict_smooth",
+                          model_name)  # only if you implanted smooth predict
+    utils.save_np_as_tiff(test_x[0], save_time, "input", model_name)
+    utils.save_np_as_tiff(test_y[0], save_time, "ground_truth", model_name)
+    print("... All tiffs saved !!")
+    stop = datetime.now()
+    print('Done All, Time: ', stop - start)
+    utils.reset_dir()
+
+
+
 def run_all_orgs(selected_model_name: str, best_orgs_dict: dict):
     """
     Params:
@@ -220,8 +303,8 @@ def run_all_orgs(selected_model_name: str, best_orgs_dict: dict):
 
         model_dir = "/%s_%s_%s/" % (selected_model_name, organelle, model_date) if model_date else None
 
-        run(dir="%s_%s" % (selected_model_name, organelle), model_name=selected_model_name, epochs=100, batch_size=32,
-            read_img=True, org_type=organelle, img_read_limit=200, load_model_date=model_dir, multiply_img_z=4)
+        run(dir="%s_%s" % (selected_model_name, organelle), model_name=selected_model_name, epochs=50, batch_size=32,
+            read_img=True, org_type=organelle, img_read_limit=120, load_model_date=model_dir, multiply_img_z=2)
 
         done_org = "***** Done organelle: %s *****" % organelle
         print(len(done_org) * "*")
@@ -239,19 +322,22 @@ if __name__ == '__main__':
     # you can copy model name from here
     all_models = ["pix2pix", "unet", "f2f", "b2b", "img2img"]
 
-    selected_model = "img2img"
+    selected_model = "unet"
+    organelle = "Mitochondria"
 
     # todo please comment/uncomment your selected Organelle !!
     best_orgs = {
-         "Mitochondria": None,
-         # "Actin-filaments": None,
-         # "Microtubules": None,
+         # "Mitochondria": None,
+         "Actin-filaments": None,
+         "Microtubules": None,
          "Endoplasmic-reticulum": None,
          "Nuclear-envelope": None
     }
 
     run_all_orgs(selected_model, best_orgs)
 
+    # run_with_data_gen(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=10, batch_size=64,
+    #                   org_type=organelle, load_model_date=None, over_lap=1, multiply_img_z=1)
 
     # organelle = "Mitochondria"
     # run(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=100, batch_size=32, read_img=True,

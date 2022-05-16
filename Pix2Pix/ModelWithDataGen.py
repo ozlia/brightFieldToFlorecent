@@ -328,8 +328,7 @@ if __name__ == '__main__':
     img_size_channels_first = (6, 640, 896)
     img_size_channels_last = (img_size_channels_first[1], img_size_channels_first[2], img_size_channels_first[0])
     patch_size_channels_last = (128, 128, 6)
-    num_patches_in_img = img_size_channels_first[1] // patch_size_channels_last[0] * img_size_channels_first[2] // \
-                         patch_size_channels_last[1]
+    num_patches_in_img = (img_size_channels_first[1] // patch_size_channels_last[0]) * (img_size_channels_first[2] // patch_size_channels_last[1])
     # resplit = False
 
     gan = Pix2Pix(patch_size_channels_last=patch_size_channels_last, batch_size=batch_size, print_summary=print_summary,

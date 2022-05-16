@@ -3,7 +3,7 @@ from aicsimageio import AICSImage
 import numpy as np
 import cv2
 from enum import Enum
-
+from datetime import datetime
 import utils
 
 
@@ -37,7 +37,11 @@ def separate_data(fovs, img_size, multiply_img_z=1):
     bright_field = []
     fluorescent = []
     z, y, x = img_size
-    for tiff in fovs:
+    tiff_to_read = len(fovs)
+    print("Now Reading %d tiffs from disk" % tiff_to_read)
+    for i, tiff in enumerate(fovs):
+        print("reading tiff number %d out of %d" % ((i+1), tiff_to_read))
+        start = datetime.now()
         reader = AICSImage(tiff)
         img = reader.data
 
@@ -56,7 +60,8 @@ def separate_data(fovs, img_size, multiply_img_z=1):
             img_3d = img[n_channels - 4, under_slice:under_slice + z, :, :]
             fluorescent.append(image3d_prep(img_3d, ImgType.FLUORESCENT))
             under_slice += z
-
+        stop = datetime.now()
+        print('Done, Time for this tiff: ', stop - start)
     bright_field_array = np.array(bright_field)
     fluorescent_array = np.array(fluorescent)
     return bright_field_array, fluorescent_array

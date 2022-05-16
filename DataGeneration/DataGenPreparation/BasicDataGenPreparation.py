@@ -12,7 +12,7 @@ import data_prepare
 
 class BasicDataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation
     def __init__(self, img_size_channels_first, patch_size_channels_last, org_type, resplit=False,
-                 validation_size=0.0, test_size=0.3, initial_testing=False):
+                 validation_size=0.0, test_size=0.3, initial_testing=False, bulk_size=25):
         assert type(
             validation_size) == float and 0 <= validation_size < 1, f'Expected float in range [0,1) received: {validation_size}'
         assert type(
@@ -27,8 +27,9 @@ class BasicDataGeneratorPreparation:  # better as a class - can be easily replac
         self.patch_size_channels_last = patch_size_channels_last
         self.patch_size_channels_first = patch_size_channels_last[::-1]  # assuming patch is square
 
-        self.imgs_bulk_size = 25
-        self.seed = 42
+        self.imgs_bulk_size = bulk_size
+        self.seed = 3
+        self.multiply_img_z = 1
 
         self.patches_dir_path = path.join(self.org_type, 'Patches')
         self.images_dir_path = path.join(self.org_type, 'Images')
@@ -84,7 +85,7 @@ class BasicDataGeneratorPreparation:  # better as a class - can be easily replac
                 curr_batch_num = i // self.imgs_bulk_size + 1
                 print(
                     f'Starting to process batch {curr_batch_num} in {data_set_name} set. Current time: {start}')
-                data_sets = data_prepare.separate_data(curr_data_set_paths, self.patch_size_channels_first)
+                data_sets = data_prepare.separate_data(curr_data_set_paths, self.patch_size_channels_first, multiply_img_z=self.multiply_img_z)
                 print(
                     f'Loading batch number {curr_batch_num} took: {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
                 brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
