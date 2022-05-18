@@ -1,5 +1,5 @@
 from tensorflow import keras
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, BatchNormalization, Dropout
 from tensorflow.keras.callbacks import CSVLogger
 from patchify import unpatchify
 from datetime import datetime
@@ -7,28 +7,55 @@ import utils
 from ICNN import ICNN
 import getpass
 import os
+import numpy as np
+
 
 class AutoEncoderCrossDomain(ICNN):
 
     def __init__(self, input_dim=(128, 128, 6), batch_size=32, epochs=100):
         stride = 2
+        filter_size = 2
         inputs = keras.Input(shape=input_dim)
 
         # Encoder implementation
-        x = Conv2D(32, (2, 2), strides=stride, activation="relu", padding="same")(inputs)
-        x = Conv2D(64, (2, 2), strides=stride, activation="relu", padding="same")(x)
-        x = Conv2D(128, (2, 2), strides=stride, activation="relu", padding="same")(x)
+        en_inputs = inputs
+
+        x = Conv2D(32, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(en_inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(256, filter_size, strides=stride, activation="relu", padding="same")(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(512, filter_size, strides=stride, activation="relu", padding="same")(x)
+        x = BatchNormalization()(x)
+        latent_layer = Conv2D(512, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
+        encoder = keras.Model(inputs, latent_layer, name="Encoder")
 
         # decoder implementation
-        x = (Conv2DTranspose(128, (2, 2), strides=stride, padding="same"))(x)
-        x = LeakyReLU()(x)
-        x = (Conv2DTranspose(64, (2, 2), strides=stride, padding="same"))(x)
-        x = LeakyReLU()(x)
-        x = (Conv2DTranspose(32, (2, 2), strides=stride, padding="same"))(x)
-        x = LeakyReLU()(x)
-        outputs = Conv2DTranspose(input_dim[2], (2, 2), activation='sigmoid', padding='same', name='decoder_output')(x)
+        latent_layer_shape = latent_layer.get_shape()
+        decoder_inputs = keras.Input(shape=(latent_layer_shape[1], latent_layer_shape[2], latent_layer_shape[3]))
+        x = (Conv2DTranspose(512, filter_size, strides=stride, padding="same", activation=LeakyReLU()))(decoder_inputs)
+        x = BatchNormalization()(x)
+        x = (Conv2DTranspose(512, filter_size, strides=stride, padding="same", activation="relu"))(x)
+        x = BatchNormalization()(x)
+        x = (Conv2DTranspose(256, filter_size, strides=stride, padding="same", activation="relu"))(x)
+        x = BatchNormalization()(x)
+        x = (Conv2DTranspose(128, filter_size, strides=stride, padding="same", activation=LeakyReLU()))(x)
+        x = BatchNormalization()(x)
+        x = (Conv2DTranspose(64, filter_size, strides=stride, padding="same", activation=LeakyReLU()))(x)
+        x = BatchNormalization()(x)
+        x = (Conv2DTranspose(32, filter_size, strides=stride, padding="same", activation=LeakyReLU()))(x)
+        x = BatchNormalization()(x)
+        outputs = Conv2DTranspose(input_dim[2], filter_size, activation='sigmoid', padding='same',name='decoder_output')(x)
+        decoder = keras.Model(decoder_inputs, outputs, name="Decoder")
 
-        model = keras.Model(inputs, outputs)
+        # AutoEncoder
+        model = keras.Model(inputs, decoder(encoder(inputs)), name='AutoEncoder')
+        # model = keras.Model(inputs, outputs, name='AutoEncoder')
+
+
         model.compile(optimizer="adam", loss='mse')
         self.model = model
         self.input_dim = input_dim
@@ -41,55 +68,4 @@ class AutoEncoderCrossDomain(ICNN):
         self.dir = utils.DIRECTORY
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
-
-    def train(self, train_x, train_label, val_set=0.0, model_dir="model3D_full"):
-        save_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
-        model_dir = "%s/%s_%s/" % (self.dir, model_dir, save_time)
-        # train_x = utils.transform_dimensions(train_x, [0, 2, 3, 1])
-        # train_label = utils.transform_dimensions(train_label, [0, 2, 3, 1])
-        # model_dir = self.dir + model_dir
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        model = self.model
-        model.summary()
-        callbacks = [
-            keras.callbacks.ModelCheckpoint("%sBasicAEModel3D.h5" % model_dir, save_best_only=True),
-            CSVLogger('%slog_%s.csv' % (model_dir, save_time), append=True, separator=';')
-        ]
-        model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
-                  validation_split=val_set,
-                  callbacks=callbacks)
-        model.save(model_dir)
-
-    def predict_patches(self, test_data_input):
-        """
-
-        @param test_data_input: list of bright_field patches
-        @return: list of predicted fluorescent patches
-        """
-        return self.model.predict(test_data_input)
-
-    def predict(self, img):
-        """
-        predicts list of full scaled bright_field images
-        @param path_to_tiff: list of full scaled predicted fluorescent images
-        @return:
-        """
-        bright_field = utils.utils_patchify(img, self.input_dim)
-        for row in bright_field:
-            for col in row:
-                pred_img = self.model.predict(col)
-                col[0] = pred_img[0]
-        size = img[0].shape
-        return unpatchify(bright_field, size)
-
-    def load_model(self, model_dir='/model/'):
-        """
-        loads model
-        @param model_dir: path in cluster of saved model
-        @return: nothing, saves the model in class
-        """
-        path = self.dir + model_dir
-        self.model = keras.models.load_model(path)
-
 
