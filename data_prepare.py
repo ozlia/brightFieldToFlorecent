@@ -24,10 +24,12 @@ def load_paths(org_type, limit=1):
 
 
 def separate_data(fovs, img_size, multiply_img_z=1):
+    counter = 1
     bright_field = []
     fluorescent = []
     z, y, x = img_size
     for tiff in fovs:
+        print("reading img number ", counter)
         reader = AICSImage(tiff)
         img = reader.data
 
@@ -46,6 +48,7 @@ def separate_data(fovs, img_size, multiply_img_z=1):
             img_3d = img[n_channels - 4, under_slice:under_slice + z, :, :]
             fluorescent.append(image3d_prep(img_3d, ImgType.FLUORESCENT))
             under_slice += z
+        counter += 1
 
     bright_field_array = np.array(bright_field)
     fluorescent_array = np.array(fluorescent)
