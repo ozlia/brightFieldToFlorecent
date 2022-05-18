@@ -16,7 +16,7 @@ class AutoEncoder(ICNN):
         inputs = keras.Input(shape=input_dim)
 
         self.stride = 2
-        self.filter_size = (2, 2)
+        self.filter_size = (4, 4)
         self.depth_start = 32
         # encoder
 
@@ -68,7 +68,7 @@ class AutoEncoder(ICNN):
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
-    def train(self, train_x, train_label, val_set=0.0, model_dir="model3D_full"):
+    def train(self, train_x, train_label=None, val_set=0.0, model_dir="model3D_full"):
         save_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
         model_dir = "%s/%s_%s/" % (self.dir, model_dir, save_time)
 
@@ -80,10 +80,12 @@ class AutoEncoder(ICNN):
             keras.callbacks.ModelCheckpoint("%sBasicAEModel3D.h5" % model_dir, save_best_only=True),
             CSVLogger('%slog_%s.csv' % (model_dir, save_time), append=True, separator=',')
         ]
-        model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
-                  validation_split=val_set,
-                  callbacks=callbacks)
-
+        if train_label:
+            model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
+                      validation_split=val_set,
+                      callbacks=callbacks)
+        else:
+            model.fit(train_x, validation_data=None, epochs=self.epochs, shuffle=True, verbose=1)
         model.save(model_dir)
 
     def predict_patches(self, test_data_input):

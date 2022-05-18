@@ -1,7 +1,5 @@
 from __future__ import print_function, division
 
-from PIL import Image
-
 import utils
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
@@ -11,12 +9,11 @@ from skimage.metrics import peak_signal_noise_ratio as peak_snr, structural_simi
     mean_squared_error as mse
 
 import datetime
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 
-from Pix2Pix.data_handler import data_handler
+from Pix2Pix.BeforeDataGen.data_handler import data_handler
 
 
 class Pix2Pix:
