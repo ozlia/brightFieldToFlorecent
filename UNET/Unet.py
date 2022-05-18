@@ -2,6 +2,8 @@ from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, Dropout,
     MaxPool2D, BatchNormalization, ReLU
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model
+
+import utils
 from ICNN import ICNN
 import getpass
 import os
@@ -51,7 +53,7 @@ class Unet(ICNN):
         self.USER = getpass.getuser().split("@")[0]
         print(self.USER)
 
-        self.dir = "/home/%s/%s" % (self.USER, "Unet")
+        self.dir = utils.DIRECTORY
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 

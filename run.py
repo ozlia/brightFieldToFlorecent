@@ -1,5 +1,4 @@
 import numpy as np
-
 import data_prepare
 from sklearn.model_selection import train_test_split
 import utils
@@ -45,12 +44,12 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
     else:
         data_input = utils.load_numpy_array("input_images_after_data_prepare_norm.npy")
         data_output = utils.load_numpy_array("output_images_after_data_prepare_norm.npy")
-        print("Loaded successfully numpy array from %s" % utils.DIRECTORY)
+        print("Loaded successfully %d images as numpy array from %s" % (len(data_output), utils.DIRECTORY))
 
     data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
     data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
 
-    train_x, test_x, train_y, test_y = train_test_split(data_input, data_output, test_size=0.1, random_state=3,
+    train_x, test_x, train_y, test_y = train_test_split(data_input, data_output, test_size=0.2, random_state=3,
                                                         shuffle=True)
     patches_train_x = utils.utils_patchify(train_x, patch_size_rev, resize=True, over_lap_steps=over_lap)
     patches_train_y = utils.utils_patchify(train_y, patch_size_rev, resize=True, over_lap_steps=over_lap)
@@ -66,7 +65,7 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
 
     if not load_model_date:
         print("training model")
-        model.train(patches_train_x, patches_train_y, val_set=0.1, model_dir=dir)
+        model.train(patches_train_x, patches_train_y, val_set=0.2, model_dir=dir)
         stop = datetime.now()
         print('Done Train, Time: ', stop - start)
 
@@ -77,17 +76,17 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
         print('Done Load, Time: ', stop - start)
 
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
-    utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100],
+    max_index = utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100],
                                            model_name=model_name, time=save_time, organelle=org_type)
 
     print("Generate new pic")
-    predicted_img = model.predict([test_x[0]])
-    predicted_img_smooth = model.predict_smooth([test_x[0]]) # only if you implanted smooth predict
+    predicted_img = model.predict([test_x[max_index]])
+    predicted_img_smooth = model.predict_smooth([test_x[max_index]]) # only if you implanted smooth predict
     print("Saving .........")
     utils.save_np_as_tiff(predicted_img, save_time, "predict", model_name)
     utils.save_np_as_tiff(predicted_img_smooth, save_time, "predict_smooth", model_name) # only if you implanted smooth predict
-    utils.save_np_as_tiff(test_x[0], save_time, "input", model_name)
-    utils.save_np_as_tiff(test_y[0], save_time, "ground_truth", model_name)
+    utils.save_np_as_tiff(test_x[max_index], save_time, "input", model_name)
+    utils.save_np_as_tiff(test_y[max_index], save_time, "ground_truth", model_name)
     print("... All tiffs saved !!")
     stop = datetime.now()
     print('Done All, Time: ', stop - start)
@@ -327,15 +326,15 @@ if __name__ == '__main__':
 
     # todo please comment/uncomment your selected Organelle !!
     best_orgs = {
-         # "Mitochondria": None,
-         "Actin-filaments": None,
-         "Microtubules": None,
-         "Endoplasmic-reticulum": None,
-         "Nuclear-envelope": None
+         "Mitochondria": "17-05-2022_16-28",
+         # "Microtubules": None,
+         # "Endoplasmic-reticulum": "17-05-2022_23-40",
+         # "Nuclear-envelope": "18-05-2022_02-24",
+         # "Actin-filaments": "18-05-2022_05-11"
     }
 
     run_all_orgs(selected_model, best_orgs,
-                 epochs=100, batch_size=32, read_img=True, img_read_limit=250, multiply_img_z=2)
+                 epochs=150, batch_size=32, read_img=False, img_read_limit=220, multiply_img_z=2)
 
     # run_with_data_gen(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=10, batch_size=64,
     #                   org_type=organelle, load_model_date=None, over_lap=1, multiply_img_z=1)

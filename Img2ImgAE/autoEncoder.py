@@ -80,7 +80,7 @@ class AutoEncoder(ICNN):
             keras.callbacks.ModelCheckpoint("%sBasicAEModel3D.h5" % model_dir, save_best_only=True),
             CSVLogger('%slog_%s.csv' % (model_dir, save_time), append=True, separator=',')
         ]
-        if train_label:
+        if train_label is not None:
             model.fit(train_x, train_label, batch_size=self.batch_size, epochs=self.epochs, verbose=1,
                       validation_split=val_set,
                       callbacks=callbacks)
@@ -110,14 +110,14 @@ class AutoEncoder(ICNN):
         size = img[0].shape
         return unpatchify(bright_field, size)
 
-    def load_model(self, model_dir='/model/'):
-        """
-        loads model
-        @param model_dir: path in cluster of saved model
-        @return: nothing, saves the model in class
-        """
-        path = self.dir + model_dir
-        self.model = keras.models.load_model(path)
+    # def load_model(self, model_dir='/model/'):
+    #     """
+    #     loads model
+    #     @param model_dir: path in cluster of saved model
+    #     @return: nothing, saves the model in class
+    #     """
+    #     path = self.dir + model_dir
+    #     self.model = keras.models.load_model(path)
 
 
     def encoder_layer(self, x, depth):

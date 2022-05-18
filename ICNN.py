@@ -67,6 +67,7 @@ class ICNN(ABC):
         """
         path = self.dir + model_dir
         self.model = models.load_model(path)
+        print("Loaded successfully from %s" % path)
 
     def predict_smooth(self, img):
         smooth_predicted_img = predict_img_with_smooth_windowing(

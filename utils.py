@@ -175,11 +175,16 @@ def calculate_pearson_for_all_images(model, data_input, data_output, time, model
     for i, img in enumerate(data_input):
         predicted_img = model.predict([img])
         all_pearson.append(np_corr(data_output[i], predicted_img)[0][1])
+    all_pearson = np.array(all_pearson)
     file = open("%s/Pearson_correlation_%s.txt" % (DIRECTORY, time), "w+")
-    results = "total predicted: %d, mean : %f , std: %f" % ( len(all_pearson), np.mean(all_pearson) , np.std(all_pearson) )
+    max_index = np.argmax(all_pearson)
+    results = "total predicted: %d, mean : %f , std: %f , max value: %f at index: %d" % (len(all_pearson), np.mean(all_pearson) , np.std(all_pearson), np.max(all_pearson), max_index)
     file.writelines([time, "\n", model_name, "\n", organelle[:-1], "\n", results])
+    for i, element in enumerate(all_pearson):
+        file.write("%d. score: %f \n" % (i, element))
     print(results)
     print("------------------------------------------------------")
+    return max_index
 
 def get_usernames(curr_user_first=True):
     usernames = ['naorsu', 'tomrob', 'ozlia', 'omertag']
