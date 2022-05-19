@@ -122,7 +122,6 @@ def save_numpy_array(array, path):
 def transform_dimensions(array, new_shape_indexes):
     return np.array(transpose(array, new_shape_indexes))
 
-
 def sample_images(model, brightfield_patches, fluorescent_patches, target_dir, fig_name, rescale=False):
     assert len(brightfield_patches.shape) == len(
         fluorescent_patches.shape) == 4, f"Expected 4D array of brightfield and fluorescent images\nArrays shapes received:\n\tBrightfield: {brightfield_patches.shape}\n\tFluorescent: {fluorescent_patches.shape}"

@@ -5,14 +5,19 @@ from DataGeneration.DataGenerator.DataGen import DataGenerator
 
 
 class TestDataGenerator(DataGenerator):
+    def __init__(self, **kwargs):
+        kwargs['data_set_type'] = 'Test'
+        self.get_brightfield_img = kwargs.pop('predict_brightfield_img')
+        super(TestDataGenerator, self).__init__(**kwargs)
+        # Change if you want to return a brightfield img on test set or brightfield patches
 
     def __len__(self):
         return len(self.brightfield_imgs_paths)
 
     def __getitem__(self, batch_i):
-        if self.send_brightfield_img:
+        if self.get_brightfield_img:
             brightfield_patches_batch = np.load(self.brightfield_imgs_paths[batch_i])
-        else:
+        else:  # get patches instead
             brightfield_img_patches_paths = self.brightfield_patches_paths[
                                             batch_i * self.num_patches_in_img: (batch_i + 1) * self.num_patches_in_img]
             brightfield_patches_batch = np.array(

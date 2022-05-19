@@ -10,8 +10,7 @@ np.random.seed = seed
 
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, data_root_path, meta_data_fpath, num_epochs, batch_size, num_patches_in_img,
-                 data_set_type='Train',
+    def __init__(self, data_root_path, meta_data_fpath, num_epochs, batch_size, num_patches_in_img,data_set_type,
                  data_format_in_disc='npy'):
         self.num_patches_in_img = num_patches_in_img
         self.set_paths(data_root_path, meta_data_fpath, data_set_type, data_format_in_disc)
@@ -20,8 +19,7 @@ class DataGenerator(keras.utils.Sequence):
         self.batch_size = batch_size
         self.data_set_type = data_set_type
 
-        # Change if you want to return a brightfield img on test set or brightfield patches
-        self.send_brightfield_img = False
+
         self.num_epochs_passed = 0
         idx_matrix_shape = (num_epochs, self.num_batches_in_epoch, batch_size)
         self.idx_matrix = np.random.randint(low=0, high=len(self.brightfield_patches_paths),

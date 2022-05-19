@@ -90,8 +90,11 @@ class BasicDataGeneratorPreparation:  # better as a class - can be easily replac
                 data_sets = data_prepare.separate_data(curr_data_set_paths, self.patch_size_channels_first)
                 print(
                     f'Loading batch number {curr_batch_num} took: {utils.get_time_diff_minutes(datetime.now(), start)} minutes')
-                brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
-                                                    data_sets)  # costly operation
+                if data_sets[0].size > 0:
+                    brightfield_arr, fluorescent_arr = (utils.transform_dimensions(data_set, [0, 2, 3, 1]) for data_set in
+                                                        data_sets)  # costly operation
+                else:
+                    continue
                 data_sets = None
                 gc.collect()
                 start = datetime.now()

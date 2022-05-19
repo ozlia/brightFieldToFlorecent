@@ -4,6 +4,9 @@ import numpy as np
 from DataGeneration.DataGenerator.DataGen import DataGenerator
 
 class TrainDataGenerator(DataGenerator):
+    def __init__(self, **kwargs):
+        kwargs['data_set_type'] = 'Train'
+        super().__init__(**kwargs)
     def __len__(self):
         return self.num_batches_in_epoch
 

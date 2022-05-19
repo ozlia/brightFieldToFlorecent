@@ -14,10 +14,11 @@ import numpy as np
 import os
 import pandas as pd
 
-from DataGeneration.DataGen import DataGenerator
+from DataGeneration.DataGenerator import DataGen
 from DataGeneration.DataGenPreparation.BasicDataGenPreparation import BasicDataGeneratorPreparation
-from DataGeneration.TestDataGen import TestDataGenerator
-from DataGeneration.TrainDataGen import TrainDataGenerator
+from DataGeneration.DataGenerator.DataGen import DataGenerator
+from DataGeneration.DataGenerator.TestDataGen import TestDataGenerator
+from DataGeneration.DataGenerator.TrainDataGen import TrainDataGenerator
 
 
 class P2P_Discriminator():
@@ -32,16 +33,17 @@ class P2P_Discriminator():
             self.disc_patch = (self.patch_size, self.patch_size, self.input_size_channels_last[2])
             patch_arr_size = (batch_size,) + self.disc_patch
             self.loss = 'mse'
+            self.optimizer = Adam(0.00002, 0.5)
         else:
             patch_arr_size = (batch_size, 1)
             self.loss = 'binary_crossentropy'
+            self.optimizer = Adam(0.0002, 0.5)
 
-        self.valid = np.ones(patch_arr_size)
-        self.fake = np.zeros(patch_arr_size)
+        self.valid = np.ones(patch_arr_size) - 0.1
+        self.fake = np.zeros(patch_arr_size) + 0.1
 
         self.build_model(use_patchGAN)
 
-        self.optimizer = Adam(0.0002, 0.5)
         self.model.compile(loss=self.loss, optimizer=self.optimizer)
 
     def add_conv_layer(self, layer_input, filters, f_size=4, bn=True, dropout_rate=0):
@@ -68,7 +70,7 @@ class P2P_Discriminator():
 
         if use_patches:  # filter output
             # originally padding same
-            validity = Conv2D(1, kernel_size=self.patch_size, strides=1, padding='same', activation='sigmoid')(d4)
+            validity = Conv2D(1, kernel_size=(self.patch_size,self.patch_size), padding='same', activation='sigmoid')(d4)
         else:
             validity = Flatten()(d4)
             validity = Dense(1)(validity)
@@ -84,7 +86,7 @@ class P2P_Generator():
         self.build_model()
 
         self.loss = 'mae'
-        self.optimizer = Adam(0.0002, 0.5)
+        self.optimizer = Adam(0.002, 0.5)
         self.model.compile(loss=self.loss, optimizer=self.optimizer)
 
     def add_conv_layer(self, layer_input, filters, f_size=4, bn=True):
@@ -119,8 +121,8 @@ class P2P_Generator():
 
         # Upsampling
         u1 = self.add_deconv_layer(d6, d5, self.n_filters * 8, dropout_rate=0.1)
-        u2 = self.add_deconv_layer(u1, d4, self.n_filters * 8, dropout_rate=0.1)
-        u3 = self.add_deconv_layer(u2, d3, self.n_filters * 4)
+        u2 = self.add_deconv_layer(u1, d4, self.n_filters * 8, dropout_rate=0.2)
+        u3 = self.add_deconv_layer(u2, d3, self.n_filters * 4, dropout_rate=0.2)
         u4 = self.add_deconv_layer(u3, d2, self.n_filters * 2)
         u5 = self.add_deconv_layer(u4, d1, self.n_filters)
 
@@ -169,7 +171,7 @@ class Pix2Pix:
         valid = self.discriminator([fake_fluorescent, real_brightfield])
 
         self.combined = Model(inputs=[real_fluorescent, real_brightfield], outputs=[valid, fake_fluorescent])
-        self.combined.compile(loss=[self.full_disc.loss, self.full_gen.loss], loss_weights=[10, 90],
+        self.combined.compile(loss=[self.full_disc.loss, self.full_gen.loss], loss_weights=[30, 70],
                               optimizer=self.full_gen.optimizer)
 
     def custom_train_on_batch(self, epochs, data_gen: DataGenerator, save_target_dir):
@@ -282,7 +284,7 @@ class Pix2Pix:
             utils.save_full_2d_pic(real_fluorescent_img[:, :, 0],
                                    os.path.join(curr_imgs_output_dir, f'{curr_img_name}_real.png'))
         print(f'Saving eval metrics')
-        pd.DataFrame.from_dict(data=eval_metrics).to_csv(utils.get_dir(root_dir), index=False)
+        pd.DataFrame.from_dict(data=eval_metrics).to_csv(utils.get_dir(os.path.join(root_dir,'eval_metrics.csv')), index=False)
 
     def print_summary(self):
         self.generator.summary()
@@ -310,26 +312,28 @@ class Pix2Pix:
 
 
 if __name__ == '__main__':
-    # Current changes   -   50x50 loss weights, leakyRelu all layers, extra gen layer, dropout on disc,
-
+    # Current tests   -  patchGAN ,labels as 0.9 and 0.1, disc every 15 batches
+    # Current changes - loss weights 30x70, higher test size, gen dropout for overfitting, smaller patch size
     first_time_testing_if_works = False
     print_summary = False
 
     # training params
-    batch_size = 32
-    epochs = 1
+    batch_size = 64
+    epochs = 100
     validation_size = 0.0
-    test_size = 0.15
+    test_size = 0.3
     utilize_patchGAN = False
     # nImages_to_sample = 3 #TODO insert into DataGen
 
     # Data Parameters
-    org_type = "Mitochondria"
+    top_5_organelles = ["Mitochondria", "Nuclear-envelope", "Microtubules", "Endoplasmic-reticulum", "Actin-filaments"]
+    org_type = top_5_organelles[4]
     img_size_channels_first = (6, 640, 896)
     img_size_channels_last = (img_size_channels_first[1], img_size_channels_first[2], img_size_channels_first[0])
     patch_size_channels_last = (128, 128, 6)
-    num_patches_in_img = img_size_channels_first[1] // patch_size_channels_last[0] * img_size_channels_first[2] // \
-                         patch_size_channels_last[1]
+    num_patches_in_img = (img_size_channels_first[1] // patch_size_channels_last[0]) * (img_size_channels_first[2] // \
+                         patch_size_channels_last[1])
+    predict_brightfield_img = False
     # resplit = False
 
     gan = Pix2Pix(patch_size_channels_last=patch_size_channels_last, batch_size=batch_size, print_summary=print_summary,
@@ -345,7 +349,7 @@ if __name__ == '__main__':
     train_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img)
     test_data_gen = TestDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
-                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img)
+                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img,predict_brightfield_img=predict_brightfield_img)
     # if validation_size > 0:
     #     validation_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
     #                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img)
