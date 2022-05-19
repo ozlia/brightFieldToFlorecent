@@ -3,6 +3,11 @@ from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU
 from tensorflow.keras.callbacks import CSVLogger
 from patchify import unpatchify
 from datetime import datetime
+
+from tensorflow.keras import regularizers
+from tensorflow.keras.layers import BatchNormalization, Dropout
+from tensorflow.keras.constraints import unit_norm
+
 import utils
 from ICNN import ICNN
 import getpass
@@ -16,46 +21,63 @@ class AutoEncoder(ICNN):
         inputs = keras.Input(shape=input_dim)
 
         self.stride = 2
-        self.filter_size = (4, 4)
+        self.filter_size = 3
         self.depth_start = 32
         # encoder
 
         # x = self.encoder_layer(inputs, depth_start, filter_size, stride)
-        x = Conv2D(self.depth_start, self.filter_size, activation="relu", padding="same")(inputs)
-        x = Conv2D(self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
-
-        x = Conv2D(2*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
-        x = Conv2D(2*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
-
-        x = Conv2D(4*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
+        # x = Conv2D(self.depth_start, self.filter_size, activation="relu", padding="same")(inputs)
+        # x = BatchNormalization()(x)
+        x = Conv2D(self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(inputs)
+        x = BatchNormalization()(x)
+        x = Dropout(0.4)(x)
+        # x = Conv2D(2*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
+        # x = BatchNormalization()(x)
+        x = Conv2D(2*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same", kernel_regularizer=regularizers.l2(l=0.005))(x)
+        x = BatchNormalization()(x)
+        x = Dropout(0.3)(x)
+        # x = Conv2D(4*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
+        # x = BatchNormalization()(x)
         x = Conv2D(4*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
-
+        x = BatchNormalization()(x)
+        x = Dropout(0.3)(x)
         # x = Conv2D(8*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
-        # x = Conv2D(8*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
+        x = Conv2D(8*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
+        x = BatchNormalization()(x)
+
+        x = Conv2D(16*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
 
 
         # decoder
+        x = (Conv2DTranspose(16*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu", kernel_constraint=unit_norm()))(x)
+        x = BatchNormalization()(x)
         # x = (Conv2DTranspose(8*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
         # x = LeakyReLU()(x)
-        # x = (Conv2DTranspose(8*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        x = (Conv2DTranspose(8*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu", kernel_constraint=unit_norm()))(x)
+        x = BatchNormalization()(x)
         # x = LeakyReLU()(x)
-        x = (Conv2DTranspose(4*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = (Conv2DTranspose(4*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
         # x = LeakyReLU()(x)
-        x = (Conv2DTranspose(4*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        x = (Conv2DTranspose(4*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu", kernel_constraint=unit_norm()))(x)
+        x = BatchNormalization()(x)
         # x = LeakyReLU()(x)
-        x = (Conv2DTranspose(2*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = (Conv2DTranspose(2*self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = BatchNormalization()(x)
         # x = LeakyReLU()(x)
-        x = (Conv2DTranspose(2*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        x = (Conv2DTranspose(2*self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu", kernel_constraint=unit_norm()))(x)
+        x = BatchNormalization()(x)
         # x = LeakyReLU()(x)
-        x = (Conv2DTranspose(self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = (Conv2DTranspose(self.depth_start, self.filter_size, padding="same", activation="relu"))(x)
+        # x = BatchNormalization()(x)
         # x = LeakyReLU()(x)
-        x = (Conv2DTranspose(self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu"))(x)
+        x = (Conv2DTranspose(self.depth_start, self.filter_size, strides=self.stride, padding="same", activation="relu", kernel_constraint=unit_norm()))(x)
+        x = BatchNormalization()(x)
         # x = LeakyReLU()(x)
 
-        outputs = Conv2DTranspose(input_dim[2], self.filter_size, activation='sigmoid', padding='same', name='decoder_output')(x)
+        outputs = Conv2D(input_dim[2], self.filter_size, activation='sigmoid', padding='same', name='decoder_output')(x)
 
         model = keras.Model(inputs, outputs)
-        model.compile(optimizer="adam", loss='mae')
+        model.compile(optimizer="adam", loss='mse')
         self.model = model
         self.input_dim = input_dim
         self.batch_size = batch_size

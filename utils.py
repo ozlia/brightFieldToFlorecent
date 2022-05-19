@@ -118,6 +118,18 @@ def save_numpy_array(array, path):
     np.save(DIRECTORY + '/' + path, array)
 
 
+def load_numpy_array_v2(name, path):
+    p = np.load("/home/%s/%s/%s" % (USER, path, name))
+    return p
+
+
+def save_numpy_array_v2(array, name, path):
+    dir_to_save = "/home/%s/%s" % (USER, path)
+    if not os.path.exists(dir_to_save):
+        os.makedirs(dir_to_save)
+    np.save(dir_to_save + '/' + name, array)
+
+
 def transform_dimensions(array, new_shape_indexes):
     return np.array(transpose(array, new_shape_indexes))
 
@@ -179,9 +191,10 @@ def calculate_pearson_for_all_images(model, data_input, data_output, time, model
     file = open("%s/Pearson_correlation_%s.txt" % (DIRECTORY, time), "w+")
     max_index = np.argmax(all_pearson)
     results = "total predicted: %d, mean : %f , std: %f , max value: %f at index: %d" % (len(all_pearson), np.mean(all_pearson) , np.std(all_pearson), np.max(all_pearson), max_index)
-    file.writelines([time, "\n", model_name, "\n", organelle[:-1], "\n", results])
+    file.writelines([time, "\n", model_name, "\n", organelle, "\n", results, "\n"])
     for i, element in enumerate(all_pearson):
         file.write("%d. score: %f \n" % (i, element))
+    file.close()
     print(results)
     print("------------------------------------------------------")
     return max_index

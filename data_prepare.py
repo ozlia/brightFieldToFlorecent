@@ -3,7 +3,7 @@ from aicsimageio import AICSImage
 import numpy as np
 import cv2
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timedelta
 import utils
 
 
@@ -14,6 +14,8 @@ class ImgType(Enum):
 
 def load_paths(org_type, limit=1):
     fovs = []
+    if not org_type[-1] == "/":
+        org_type = org_type + "/"
     folder = os.listdir("/storage/users/assafzar/fovs/" + org_type)
     for t in folder:
         if ".tiff" in t:
@@ -38,7 +40,7 @@ def separate_data(fovs, img_size, multiply_img_z=1):
     fluorescent = []
     z, y, x = img_size
     tiff_to_read = len(fovs)
-    print("Now Reading %d tiffs from disk" % tiff_to_read)
+    print("Now Reading %d tiffs from disk, should take about %s (hr-min-sec)" % (tiff_to_read, timedelta(seconds=20*tiff_to_read)))
     for i, tiff in enumerate(fovs):
         print("reading tiff number %d out of %d" % ((i+1), tiff_to_read))
         start = datetime.now()

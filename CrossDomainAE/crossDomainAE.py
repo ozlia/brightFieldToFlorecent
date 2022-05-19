@@ -19,7 +19,6 @@ class AutoEncoderCrossDomain(ICNN):
 
         # Encoder implementation
         en_inputs = inputs
-
         x = Conv2D(32, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(en_inputs)
         x = BatchNormalization()(x)
         x = Conv2D(64, filter_size, strides=stride, activation=LeakyReLU(), padding="same")(x)
