@@ -262,7 +262,7 @@ if __name__ == '__main__':
     }
 
     run_all_orgs(selected_model, best_orgs,
-                 epochs=50, batch_size=32, read_img=True, img_read_limit=350, multiply_img_z=2)
+                 epochs=50, batch_size=32, read_img=False, img_read_limit=350, multiply_img_z=2)
 
     # run_with_data_gen(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=10, batch_size=64,
     #                   org_type=organelle, load_model_date=None, over_lap=1, multiply_img_z=1)
