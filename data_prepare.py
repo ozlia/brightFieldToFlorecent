@@ -5,6 +5,7 @@ import cv2
 from enum import Enum
 
 import utils
+from skimage.metrics import structural_similarity as ssim
 
 
 class ImgType(Enum):
@@ -22,6 +23,7 @@ def load_paths(org_type, limit=1):
 
     # files, x_pixels, y_pixels, color
 
+
 def load_paths_v2(org_type, limit=None):  # Doesn't compel to pass organelle with '/'. limit default to max over min
     fovs = []
     storage_folder = '/' + os.path.join('storage', 'users', 'assafzar', 'fovs', org_type)
@@ -33,11 +35,12 @@ def load_paths_v2(org_type, limit=None):  # Doesn't compel to pass organelle wit
             fovs.append(os.path.join(storage_folder, file))
     return fovs[:limit]
 
+
 def separate_data(fovs, img_size, multiply_img_z=1):
     bright_field = []
     fluorescent = []
     z, y, x = img_size
-    for i,tiff in enumerate(fovs):
+    for i, tiff in enumerate(fovs):
         print(f'working on tiff number {i}')
         reader = AICSImage(tiff)
         img = reader.data
@@ -70,3 +73,6 @@ def image3d_prep(img_3d, type):
         img_3d_padded[i] = cv2.resize(img_3d[i], (896, 640), interpolation=cv2.INTER_AREA)
     img_3d_norm = utils.norm_img(img_3d_padded)
     return img_3d_norm
+
+
+   

@@ -229,7 +229,7 @@ class Pix2Pix:
         progress_report: pd.DataFrame = pd.DataFrame.from_dict(data=self.progress_report)
         progress_report.to_csv(os.path.join(progress_root_dir, fname), index=False)
 
-    def load_model(self, target_path=None, transfer_learning=False):
+    def load_model(self, target_path, transfer_learning=False):
         self.generator = load_model(filepath=os.path.join(target_path, 'generator_model'), compile=False)
         if transfer_learning:
             self.combined = load_model(filepath=os.path.join(target_path, 'combined_component'), compile=False)
@@ -248,7 +248,7 @@ class Pix2Pix:
                                                                                g_loss[0],
                                                                                elapsed_time))
 
-    def predict_and_save_eval(self, test_data_gen: DataGenerator, img_size_channels_last, target_dir):
+    def     predict_and_save_eval(self, test_data_gen: DataGenerator, img_size_channels_last, target_dir):
         preds_dir_name = f"Predictions_{datetime.datetime.now().strftime('%d-%m-%Y, %H:%M:%S')}"
         root_dir = os.path.join(target_dir, preds_dir_name)
         os.makedirs(utils.get_dir(root_dir), exist_ok=True)
@@ -318,8 +318,8 @@ if __name__ == '__main__':
     print_summary = False
 
     # training params
-    batch_size = 64
-    epochs = 100
+    batch_size = 32
+    epochs = 50
     validation_size = 0.0
     test_size = 0.3
     utilize_patchGAN = False
@@ -327,7 +327,7 @@ if __name__ == '__main__':
 
     # Data Parameters
     top_5_organelles = ["Mitochondria", "Nuclear-envelope", "Microtubules", "Endoplasmic-reticulum", "Actin-filaments"]
-    org_type = top_5_organelles[4]
+    org_type = top_5_organelles[0]
     img_size_channels_first = (6, 640, 896)
     img_size_channels_last = (img_size_channels_first[1], img_size_channels_first[2], img_size_channels_first[0])
     patch_size_channels_last = (128, 128, 6)
@@ -352,7 +352,7 @@ if __name__ == '__main__':
                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img,predict_brightfield_img=predict_brightfield_img)
     # if validation_size > 0:
     #     validation_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
-    #                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img)
+    #                                   batch_size=batch_size, num_patches_inf_img=num_patches_in_img)
     # else:
     #     validation_data_gen = None
 
