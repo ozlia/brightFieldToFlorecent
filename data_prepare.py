@@ -5,6 +5,11 @@ import cv2
 from enum import Enum
 from datetime import datetime, timedelta
 import utils
+import pandas as pd
+import csv
+
+
+TIFF_DF = pd.DataFrame()
 
 
 class ImgType(Enum):
@@ -13,6 +18,9 @@ class ImgType(Enum):
 
 
 def load_paths(org_type, limit=1):
+    # global TIFF_DF
+    # TIFF_DF = utils.all_tiff_df(org_type)
+
     fovs = []
     if not org_type[-1] == "/":
         org_type = org_type + "/"
@@ -36,6 +44,7 @@ def load_paths_v2(org_type, limit=None):  # Doesn't compel to pass organelle wit
     return fovs[:limit]
 
 def separate_data(fovs, img_size, multiply_img_z=1):
+    unregistered_tiff = []
     bright_field = []
     fluorescent = []
     z, y, x = img_size
@@ -49,6 +58,14 @@ def separate_data(fovs, img_size, multiply_img_z=1):
 
         img = np.squeeze(img, axis=0)
         n_channels = img.shape[0]
+        # brightfield_channel = TIFF_DF['ChannelNumberBrightfield'].loc[TIFF_DF['SourceReadPath'] == tiff.split("/")[-1]]
+        # struct_channel = TIFF_DF['ChannelNumberStruct'].loc[TIFF_DF['SourceReadPath'] == tiff.split("/")[-1]]
+        # if brightfield_channel.empty or struct_channel.empty:
+        #     unregistered_tiff.append(tiff.split("/")[-1])
+        #     print(tiff.split("/")[-1], " Empty")
+        # else:
+        #     print(brightfield_channel)
+        #     print(struct_channel)
         if n_channels <= 6:
             continue
         mid_slice = np.int(0.5 * img.shape[1])
@@ -64,6 +81,10 @@ def separate_data(fovs, img_size, multiply_img_z=1):
             under_slice += z
         stop = datetime.now()
         print('Done, Time for this tiff: ', stop - start)
+    # with open('/home/omertag/unregistered_tiffs.csv', 'w', newline='') as myfile:
+    #     wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    #     wr.writerow(unregistered_tiff)
+    # return
     bright_field_array = np.array(bright_field)
     fluorescent_array = np.array(fluorescent)
     return bright_field_array, fluorescent_array

@@ -1,6 +1,7 @@
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from PIL import Image
 import os
 import getpass
@@ -11,10 +12,13 @@ import imageio
 from metrics.metrics import np_corr
 from datetime import datetime
 from tifffile import imsave as save_tiff
+import csv
+
 
 pixel_limit = 65535
 USER = getpass.getuser().split("@")[0]
 DIRECTORY = "/home/%s" % USER
+METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
 
 def set_dir(name):
     global DIRECTORY
@@ -192,10 +196,29 @@ def calculate_pearson_for_all_images(model, data_input, data_output, time, model
     max_index = np.argmax(all_pearson)
     results = "total predicted: %d, mean : %f , std: %f , max value: %f at index: %d" % (len(all_pearson), np.mean(all_pearson) , np.std(all_pearson), np.max(all_pearson), max_index)
     file.writelines([time, "\n", model_name, "\n", organelle, "\n", results, "\n"])
+
+    csv_name = "/home/%s/all_result.csv" % USER
+    csv_exists = os.path.isfile(csv_name)
+    csv_file = open(csv_name, 'a')
+    with csv_file:
+        headers = ['TimeStamp', 'Organelle', 'Model', 'Total Predicted', 'Mean', 'STD', 'Max Value', 'Index Max Value']
+        writer = csv.DictWriter(csv_file, delimiter=',', lineterminator='\n', fieldnames=headers)
+        if not csv_exists:
+            writer.writeheader()
+        writer.writerow({'TimeStamp': time,
+                         'Organelle': organelle,
+                         'Model': model_name,
+                         'Total Predicted': len(all_pearson),
+                         'Mean': np.mean(all_pearson),
+                         'STD': np.std(all_pearson),
+                         'Max Value': np.max(all_pearson),
+                         'Index Max Value': max_index})
+
     for i, element in enumerate(all_pearson):
         file.write("%d. score: %f \n" % (i, element))
     file.close()
     print(results)
+    print("0. score: %f" % all_pearson[0])
     print("------------------------------------------------------")
     return max_index
 
@@ -226,3 +249,36 @@ def save_np_as_tiff_v2(img_channels_last, fname, target_path):
     save_tiff(file=f'{fname}.tiff', data=img_channels_last)  # if interesting we have ImageJ param too
 
     os.chdir(origin_dir)
+
+
+def print_full(df: pd.DataFrame):
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 2000)
+    pd.set_option('display.float_format', '{:20,.2f}'.format)
+    pd.set_option('display.max_colwidth', None)
+    print(df)
+    pd.reset_option('display.max_rows')
+    pd.reset_option('display.max_columns')
+    pd.reset_option('display.width')
+    pd.reset_option('display.float_format')
+    pd.reset_option('display.max_colwidth')
+
+
+def organelle_list():
+    METADATA_DF = pd.read_csv(METADATA_CSV_PATH)
+    all_org = list(set(METADATA_DF['StructureDisplayName']))
+    all_org.remove("None")
+    for i in range(0, len(all_org), 3):
+        print(', '.join(all_org[i:i + 3]))
+
+
+def all_tiff_df(organelle_name):
+    csv_of_org = "/sise/assafzar-group/assafzar/fovs/%s/%s.csv" % (organelle_name, organelle_name)
+    organelle_df = pd.read_csv(csv_of_org)
+    all_tiffs = organelle_df[['SourceReadPath', 'StructureDisplayName', 'ChannelNumberBrightfield', 'ChannelNumberStruct']] #.apply(lambda x: x[0].split("/")[1] )
+    all_tiffs['SourceReadPath'] = all_tiffs['SourceReadPath'].apply(lambda x: x.split("/")[1])
+
+    # print_full(all_tiffs.head(10))
+    return all_tiffs
+

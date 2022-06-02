@@ -11,7 +11,6 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import backend as KB
 import pandas as pd
-from pandas import DataFrame
 from argparse import ArgumentParser
 # from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
 from UNET.Unet import Unet
@@ -32,9 +31,9 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
     start = datetime.now()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     print("reading images")
-
+    paths = data_prepare.load_paths(org_type, limit=img_read_limit)
     if read_img and org_type:
-        data_input, data_output = data_prepare.separate_data(data_prepare.load_paths(org_type, limit=img_read_limit),
+        data_input, data_output = data_prepare.separate_data(paths,
                                                              PATCH_SIZE, multiply_img_z=multiply_img_z)
         utils.save_numpy_array_v2(data_input, "input_after_prepare_%d_images_%d_z_layer" % (img_read_limit, 3*multiply_img_z), "%s_data" % org_type)
         utils.save_numpy_array_v2(data_output, "output_after_prepare_%d_images_%d_z_layer" % (img_read_limit, 3*multiply_img_z), "%s_data" % org_type)
@@ -50,6 +49,8 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
 
     data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
     data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
+    input_tuple_list = list(zip(data_input, paths))
+    output_tuple_list = list(zip(data_output, paths))
 
     train_x, test_x, train_y, test_y = train_test_split(data_input, data_output, test_size=0.2, random_state=3,
                                                         shuffle=True)
@@ -80,16 +81,27 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
     max_index = utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100],
                                            model_name=model_name, time=save_time, organelle=org_type)
-    # max_index = 32
 
     print("Generate new pic")
     predicted_img = model.predict([test_x[max_index]])
     predicted_img_smooth = model.predict_smooth([test_x[max_index]]) # only if you implanted smooth predict
     print("Saving .........")
-    utils.save_np_as_tiff(predicted_img, save_time, "predict", model_name)
-    utils.save_np_as_tiff(predicted_img_smooth, save_time, "predict_smooth", model_name) # only if you implanted smooth predict
-    utils.save_np_as_tiff(test_x[max_index], save_time, "input", model_name)
-    utils.save_np_as_tiff(test_y[max_index], save_time, "ground_truth", model_name)
+    utils.save_np_as_tiff(predicted_img, save_time, "best_predict", model_name)
+    utils.save_np_as_tiff(predicted_img_smooth, save_time, "best_predict_smooth", model_name) # only if you implanted smooth predict
+    utils.save_np_as_tiff(test_x[max_index], save_time, "best_input", model_name)
+    utils.save_np_as_tiff(test_y[max_index], save_time, "best_ground_truth", model_name)
+
+    print("Generate 0 pic")
+    predicted_img = model.predict([test_x[0]])
+    predicted_img_smooth = model.predict_smooth([test_x[0]])  # only if you implanted smooth predict
+    print("Saving .........")
+    utils.save_np_as_tiff(predicted_img, save_time, "0_predict", model_name)
+    utils.save_np_as_tiff(predicted_img_smooth, save_time, "0_predict_smooth",
+                          model_name)  # only if you implanted smooth predict
+    utils.save_np_as_tiff(test_x[0], save_time, "0_input", model_name)
+    utils.save_np_as_tiff(test_y[0], save_time, "0_ground_truth", model_name)
+
+
     print("... All tiffs saved !!")
     stop = datetime.now()
     print('Done All, Time: ', stop - start)
@@ -97,18 +109,6 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
 
 # interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
 
-def print_full(df: DataFrame):
-    pd.set_option('display.max_rows', None)
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', 2000)
-    pd.set_option('display.float_format', '{:20,.2f}'.format)
-    pd.set_option('display.max_colwidth', None)
-    print(df)
-    pd.reset_option('display.max_rows')
-    pd.reset_option('display.max_columns')
-    pd.reset_option('display.width')
-    pd.reset_option('display.float_format')
-    pd.reset_option('display.max_colwidth')
 
 
 def cmd_helper_script():
@@ -145,14 +145,6 @@ def cmd_helper_script():
     # print_full((matadata_df.head()))
     # ['StructureDisplayName']
     # ['ChannelNumberBrightfield']
-
-
-def organelle_list():
-    matadata_df = pd.read_csv(METADATA_CSV_PATH)
-    all_org = list(set(matadata_df['StructureDisplayName']))
-    all_org.remove("None")
-    for i in range(0, len(all_org), 3):
-        print(', '.join(all_org[i:i + 3]))
 
 
 def create_model(name: str, patch_size_rev, epochs, batch_size):
@@ -247,6 +239,7 @@ if __name__ == '__main__':
     # todo please change your run params here
     # see run_all_orgs function and documentation
     # you can copy model name from here
+
     all_models = ["pix2pix", "unet", "f2f", "b2b", "img2img"]
 
     selected_model = "unet"
@@ -254,15 +247,32 @@ if __name__ == '__main__':
 
     # todo please comment/uncomment your selected Organelle !!
     best_orgs = {
-         "Mitochondria": None,
-         "Microtubules": None,
-         "Endoplasmic-reticulum": None,
-         "Nuclear-envelope": None,
-         "Actin-filaments": None
+         # "Mitochondria": None, #"18-05-2022_21-48",
+         # "Microtubules": None, #"18-05-2022_23-34",
+         # "Endoplasmic-reticulum": None, #"19-05-2022_01-59",
+         # "Nuclear-envelope": None, #"19-05-2022_04-16",
+         # "Actin-filaments": None, #"18-05-2022_05-11"
+         # "Tight-junctions": None,
+         # "Nucleolus-(Dense-Fibrillar-Component)": None,
+         # "Peroxisomes": None, ## Need to find br and fl channel before run!!
+         # "Golgi": None,
+         # "Endosomes": None, ## Need to find br and fl channel before run!!
+         "Gap-junctions": None,
+         "Lysosome": None,
+         "Adherens junctions": None,
+         "Nucleolus-(Granular-Component)": None,
+         "Matrix-adhesions": None,
+         "Actomyosin-bundles": None,
+         "Desmosomes": None,
+         "Plasma-membrane": None
     }
 
+    # for org, val in best_orgs.items():
+    #     TIFFS_DF = utils.all_tiff_df(organelle_name=org)
+
+    # utils.organelle_list()
     run_all_orgs(selected_model, best_orgs,
-                 epochs=50, batch_size=32, read_img=False, img_read_limit=350, multiply_img_z=2)
+                 epochs=100, batch_size=32, read_img=True, img_read_limit=500, multiply_img_z=2)
 
     # run_with_data_gen(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=10, batch_size=64,
     #                   org_type=organelle, load_model_date=None, over_lap=1, multiply_img_z=1)
