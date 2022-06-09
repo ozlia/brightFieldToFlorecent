@@ -7,8 +7,12 @@ from patchify import unpatchify
 import utils
 from tensorflow.keras import models
 
-from smooth_tiled_predictions import predict_img_with_smooth_windowing
+from tensorflow.keras.mixed_precision import experimental as policy_handler
+policy_name = 'mixed_float16' #'float16'
+policy = policy_handler.Policy(policy_name)
+policy_handler.set_policy(policy)
 
+from smooth_tiled_predictions import predict_img_with_smooth_windowing
 
 class ICNN(ABC):
 

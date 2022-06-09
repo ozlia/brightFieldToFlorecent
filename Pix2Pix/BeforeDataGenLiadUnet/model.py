@@ -16,6 +16,11 @@ import pandas as pd
 from Pix2Pix.BeforeDataGen.data_handler import data_handler
 from UNET.Unet import Unet
 
+from tensorflow.keras.mixed_precision import experimental as policy_handler
+policy_name = 'mixed_float16' #'float16'
+policy = policy_handler.Policy(policy_name)
+policy_handler.set_policy(policy)
+
 
 class Pix2Pix:
     def __init__(self, batch_size=-1, print_summary=False, utilize_patchGAN=True, nImages_to_sample=3):
@@ -319,9 +324,9 @@ if __name__ == '__main__':
     shuffle_batches = True
 
     gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN, nImages_to_sample=nImages_to_sample)
-    gan.train(epochs=epochs, batch_size_in_patches=batch_size,
-              sample_interval_in_batches=img_sample_interval_in_batches,
-              report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
-    # gan.load_model()
-    gan.predict_and_save()
-    gan.save_model_and_progress_report()
+    # gan.train(epochs=epochs, batch_size_in_patches=batch_size,
+    #           sample_interval_in_batches=img_sample_interval_in_batches,
+    #           report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
+    # # gan.load_model()
+    # gan.predict_and_save()
+    # gan.save_model_and_progress_report()

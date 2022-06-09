@@ -47,6 +47,7 @@ class data_handler():
     def load_images_from_memory(self):
         org_path = os.path.join(utils.DIRECTORY, f'{self.input_img_array_path}.npy')
         if os.path.exists(org_path):
+            print('loading images')
             brightfield_imgs = utils.load_numpy_array(self.input_img_array_path + '.npy')
             fluorescent_imgs = utils.load_numpy_array(self.output_img_array_path + '.npy')
         else:

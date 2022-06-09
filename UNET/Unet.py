@@ -41,6 +41,7 @@ class Unet(ICNN):
         # outputs
         outputs = Conv2D(input_dim[2], (1, 1), activation='sigmoid', name='decoder_output')(u9)
         # unet model with Keras Functional API
+        assert outputs.dtype.name == 'float16', 'mixed_float policy not operational'
         model = Model(inputs, outputs, name="U-Net")
 
         opt = Adam()
