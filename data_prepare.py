@@ -109,7 +109,7 @@ def separate_data(fovs, img_size, multiply_img_z=1, slice_by_brightest=False):
         if n_channels <= 6:
             continue
         if slice_by_brightest:
-            prep_img = lambda single_brightfield_or_floro: slice_img(image3d_prep(single_brightfield_or_floro),num_z_slices=6)
+            prep_img = lambda single_brightfield_or_floro: slice_img(image3d_prep(single_brightfield_or_floro))
             bright_field.append(prep_img(img[n_channels - 1, :, :, :]))
             fluorescent.append(prep_img(img[n_channels - 4, :, :, :]))
         else:
@@ -155,7 +155,7 @@ def get_brightest_layer(img_3d_channels_first) -> int:
     return brightest_z_layer
 
 
-def slice_img(img_3d_channels_first, num_z_slices=6):
+def slice_img(img_3d_channels_first, num_z_slices=32):
     '''
 
     @param img_3d_channels_first:
