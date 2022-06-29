@@ -43,13 +43,12 @@ class AutoEncoderCrossDomain(ICNN):
         x = BatchNormalization()(x)
         x = (Conv2DTranspose(32, filter_size, strides=stride, padding="same", activation=LeakyReLU()))(x)
         x = BatchNormalization()(x)
-        outputs = Conv2DTranspose(input_dim[2], filter_size, activation='sigmoid', padding='same',name='decoder_output')(x)
+        outputs = Conv2DTranspose(input_dim[2], filter_size, activation='sigmoid', padding='same',
+                                  name='decoder_output')(x)
         decoder = keras.Model(decoder_inputs, outputs, name="Decoder")
 
         # AutoEncoder
         model = keras.Model(inputs, decoder(encoder(inputs)), name='AutoEncoder')
-        # model = keras.Model(inputs, outputs, name='AutoEncoder')
-
 
         model.compile(optimizer="adam", loss='mse')
         self.model = model
@@ -63,4 +62,3 @@ class AutoEncoderCrossDomain(ICNN):
         self.dir = utils.DIRECTORY
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
-

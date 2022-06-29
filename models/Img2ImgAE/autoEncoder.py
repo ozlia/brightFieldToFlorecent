@@ -25,23 +25,15 @@ class AutoEncoder(ICNN):
         self.depth_start = 32
         # encoder
 
-        # x = self.encoder_layer(inputs, depth_start, filter_size, stride)
-        # x = Conv2D(self.depth_start, self.filter_size, activation="relu", padding="same")(inputs)
-        # x = BatchNormalization()(x)
         x = Conv2D(self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(inputs)
         x = BatchNormalization()(x)
         x = Dropout(0.4)(x)
-        # x = Conv2D(2*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
-        # x = BatchNormalization()(x)
         x = Conv2D(2*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same", kernel_regularizer=regularizers.l2(l=0.005))(x)
         x = BatchNormalization()(x)
         x = Dropout(0.3)(x)
-        # x = Conv2D(4*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
-        # x = BatchNormalization()(x)
         x = Conv2D(4*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
         x = BatchNormalization()(x)
         x = Dropout(0.3)(x)
-        # x = Conv2D(8*self.depth_start, self.filter_size, activation="relu", padding="same")(x)
         x = Conv2D(8*self.depth_start, self.filter_size, strides=self.stride, activation="relu", padding="same")(x)
         x = BatchNormalization()(x)
 

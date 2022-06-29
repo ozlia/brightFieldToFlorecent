@@ -27,33 +27,17 @@ class CrossDomain(ICNN):
 
         # mapping_layer
         mapping_layer_input_shape = self.encoder.output_shape
-        mapping_layer_inputs = Input(shape=(mapping_layer_input_shape[1], mapping_layer_input_shape[2], mapping_layer_input_shape[3]))
+        mapping_layer_inputs = Input(
+            shape=(mapping_layer_input_shape[1], mapping_layer_input_shape[2], mapping_layer_input_shape[3]))
         x = Conv2D(128, 3, activation='relu', padding='same')(mapping_layer_inputs)
-        # x = BatchNormalization()(x)
-        # x = Dropout(0.3)(x)
-        # x = Conv2D(256, (3, 3), activation='relu', padding='same')(x)
-        # x = BatchNormalization()(x)
         mapping_layer_outputs = Conv2D(512, 3, activation='relu', padding='same')(x)
-        # x = Flatten()(mapping_layer_inputs)
-        # x = Dense(512, activation="relu")(x)
-        # x = BatchNormalization()(x)
-        # x = Dropout(0.3)(x)
-        # x = Dense(256, activation="relu")(x)
-        # x = BatchNormalization()(x)
-        # x = Dropout(0.3)(x)
-        # x = Dense(512, activation="relu")(x)
-        # mean_layer = Dense(128, activation="relu")(x)
-        # sd_layer = Dense(128, activation="relu")(x)
-        # latent_vector = Lambda(sampler)([mean_layer, sd_layer])
-        # x = Dense(mapping_layer_input_shape[1] * mapping_layer_input_shape[2] * mapping_layer_input_shape[3], activation="relu")(x)
-        # mapping_layer_outputs = Reshape((mapping_layer_input_shape[1], mapping_layer_input_shape[2], mapping_layer_input_shape[3]))(x)
         self.mapping_layer = Model(mapping_layer_inputs, mapping_layer_outputs, name='feature_mapping_layer')
-
 
         model = Model(inputs, self.decoder(self.mapping_layer(self.encoder(inputs))), name="Auto_Encoder")
         model.summary()
         self.model = model
         model.compile(optimizer="adam", loss='mse')
+
 
 def sampler(layers):
     std_norm = backend.random_normal(shape=(backend.shape(layers[0])[0], 128), mean=0, stddev=1)

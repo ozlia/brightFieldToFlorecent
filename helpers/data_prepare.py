@@ -16,8 +16,6 @@ class ImgType(Enum):
 
 
 def load_paths(org_type, limit=1):
-    # global TIFF_DF
-    # TIFF_DF = utils.all_tiff_df(org_type)
 
     fovs = []
     if not org_type[-1] == "/":
@@ -43,54 +41,7 @@ def load_paths_v2(org_type, limit=None):  # Doesn't compel to pass organelle wit
     return fovs[:limit]
 
 
-def separate_data_with_omer_mess(fovs, img_size, multiply_img_z=1):
-    unregistered_tiff = []
-    bright_field = []
-    fluorescent = []
-    z, y, x = img_size
-    tiff_to_read = len(fovs)
-    print("Now Reading %d tiffs from disk, should take about %s (hr-min-sec)" % (tiff_to_read, timedelta(seconds=20*tiff_to_read)))
-    for i, tiff in enumerate(fovs):
-        print("reading tiff number %d out of %d" % ((i+1), tiff_to_read))
-        start = datetime.now()
-        reader = AICSImage(tiff)
-        img = reader.data
-
-        img = np.squeeze(img, axis=0)
-        n_channels = img.shape[0]
-        # brightfield_channel = TIFF_DF['ChannelNumberBrightfield'].loc[TIFF_DF['SourceReadPath'] == tiff.split("/")[-1]]
-        # struct_channel = TIFF_DF['ChannelNumberStruct'].loc[TIFF_DF['SourceReadPath'] == tiff.split("/")[-1]]
-        # if brightfield_channel.empty or struct_channel.empty:
-        #     unregistered_tiff.append(tiff.split("/")[-1])
-        #     print(tiff.split("/")[-1], " Empty")
-        # else:
-        #     print(brightfield_channel)
-        #     print(struct_channel)
-        if n_channels <= 6:
-            continue
-        mid_slice = np.int(0.5 * img.shape[1])
-        under_slice = int(mid_slice - z * multiply_img_z / 2)
-        # upper_slice = under_slice + z
-        for i in range(multiply_img_z):
-            img_3d = img[n_channels - 1, under_slice:under_slice + z, :, :]  # [bright_field, slice_z, all 2D image]
-
-            bright_field.append(image3d_prep(img_3d, ImgType.BRIGHT_FIELD))
-
-            img_3d = img[n_channels - 4, under_slice:under_slice + z, :, :]
-            fluorescent.append(image3d_prep(img_3d, ImgType.FLUORESCENT))
-            under_slice += z
-        stop = datetime.now()
-        print('Done, Time for this tiff: ', stop - start)
-    # with open('/home/omertag/unregistered_tiffs.csv', 'w', newline='') as myfile:
-    #     wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
-    #     wr.writerow(unregistered_tiff)
-    # return
-    bright_field_array = np.array(bright_field)
-    fluorescent_array = np.array(fluorescent)
-    return bright_field_array, fluorescent_array
-
 def separate_data(fovs, img_size, multiply_img_z=1, slice_by_brightest=False):
-    unregistered_tiff = []
     bright_field = []
     fluorescent = []
     z, y, x = img_size
