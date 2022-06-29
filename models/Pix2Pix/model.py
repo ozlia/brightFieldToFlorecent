@@ -13,13 +13,7 @@ import numpy as np
 import os
 import pandas as pd
 
-from models.Pix2Pix.BeforeDataGen.data_handler import data_handler
-from models.UNET.Unet import Unet
-
-from tensorflow.keras.mixed_precision import experimental as policy_handler
-policy_name = 'mixed_float16' #'float16'
-policy = policy_handler.Policy(policy_name)
-policy_handler.set_policy(policy)
+from models.Pix2Pix.data_handler import data_handler
 
 
 class Pix2Pix:
@@ -67,11 +61,9 @@ class Pix2Pix:
         #   Graph of Generator
         # -------------------------
 
-        #Original Pix2Pix Unet Generator
-        # self.generator = self.build_generator()
+        # Build the generator
+        self.generator = self.build_generator()
 
-        #New UNET
-        self.generator = Unet(input_dim=self.data_handler.img_size_rev).model
         # Input images and their conditioning images
         real_fluorescent = Input(shape=self.img_shape)
         real_brightfield = Input(shape=self.img_shape)
@@ -121,9 +113,9 @@ class Pix2Pix:
         d6 = conv2d(d5, self.gf * 16)
 
         # Upsampling
-        u1 = deconv2d(d6, d5, self.gf * 8, dropout_rate=0.3)
-        u2 = deconv2d(u1, d4, self.gf * 8, dropout_rate=0.3)
-        u3 = deconv2d(u2, d3, self.gf * 4, dropout_rate=0.3)
+        u1 = deconv2d(d6, d5, self.gf * 8, dropout_rate=0.1)
+        u2 = deconv2d(u1, d4, self.gf * 8, dropout_rate=0.1)
+        u3 = deconv2d(u2, d3, self.gf * 4)
         u4 = deconv2d(u3, d2, self.gf * 2)
         u5 = deconv2d(u4, d1, self.gf)
 
@@ -152,8 +144,8 @@ class Pix2Pix:
 
         d1 = d_layer(combined_imgs, self.df)
         d2 = d_layer(d1, self.df * 2, dropout_rate=0.1)
-        d3 = d_layer(d2, self.df * 4, dropout_rate=0.2)
-        d4 = d_layer(d3, self.df * 8, dropout_rate=0.3)
+        d3 = d_layer(d2, self.df * 4)
+        d4 = d_layer(d3, self.df * 8)
 
         if self.utilize_patchGAN:  # filter output
             # originally padding same
@@ -228,7 +220,8 @@ class Pix2Pix:
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,
                                                                             sample_size=self.nImages_to_sample).__next__()
         fig_name = f'e{epoch}_b{batch_i}.png'
-        utils.sample_images(self.generator, brightfield, fluorescent, fig_name=fig_name, rescale=False, target_dir=self.data_handler.org_type)
+        utils.sample_images(self.generator, brightfield, fluorescent, fig_name, rescale=False,
+                            org_type=self.data_handler.org_type)
 
     def save_model_and_progress_report(self, target_path=None):
         if target_path is None:
@@ -314,8 +307,8 @@ class Pix2Pix:
 if __name__ == '__main__':
     # Current changes   -   90x10 loss weights, leakyRelu all layers, extra gen layer, dropout on disc
 
-    epochs = 10
-    batch_size = 32
+    epochs = 300
+    batch_size = 32  # 3500 patches, ~107 batches per epoch if limit=150
     img_sample_interval_in_batches = 106
     report_sample_interval_in_batches = 106
     print_summary = False
@@ -324,9 +317,9 @@ if __name__ == '__main__':
     shuffle_batches = True
 
     gan = Pix2Pix(print_summary=print_summary, utilize_patchGAN=utilize_patchGAN, nImages_to_sample=nImages_to_sample)
-    # gan.train(epochs=epochs, batch_size_in_patches=batch_size,
-    #           sample_interval_in_batches=img_sample_interval_in_batches,
-    #           report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
-    # # gan.load_model()
-    # gan.predict_and_save()
-    # gan.save_model_and_progress_report()
+    gan.train(epochs=epochs, batch_size_in_patches=batch_size,
+              sample_interval_in_batches=img_sample_interval_in_batches,
+              report_sample_interval_in_batches=report_sample_interval_in_batches, shuffle_batches=shuffle_batches)
+    # gan.load_model()
+    gan.predict_and_save()
+    gan.save_model_and_progress_report()
