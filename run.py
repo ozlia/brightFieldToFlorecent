@@ -11,7 +11,6 @@ from argparse import ArgumentParser
 from models.UNET.Unet import Unet
 
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
-# interpreter_path_omer  = /home/omertag/.conda/envs/my_env/bin/python
 
 METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
 PATCH_SIZE = (3, 64, 64)  # (x,y,z)
@@ -44,8 +43,6 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
     print('Done All, Time: ', stop - start)
     utils.reset_dir()
 
-
-# interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
 
 def load_or_train_model(model_name, patch_size_rev, epochs, batch_size, load_model_date, patches_train_x,
                         patches_train_y, start):
