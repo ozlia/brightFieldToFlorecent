@@ -1,5 +1,5 @@
 import numpy as np
-import utils
+from helpers import utils
 from DataGeneration.DataGenPreparation.BasicDataGenPreparation import BasicDataGeneratorPreparation
 from DataGeneration.DataGenerator.TestDataGen import TestDataGenerator
 from DataGeneration.DataGenerator.TrainDataGen import TrainDataGenerator

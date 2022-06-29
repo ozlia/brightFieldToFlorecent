@@ -1,7 +1,6 @@
 import gc
 import os
-import data_prepare
-import utils
+from helpers import data_prepare, utils
 import numpy as np
 from sklearn.model_selection import train_test_split
 
@@ -52,7 +51,7 @@ class data_handler():
         else:
             os.mkdir(os.path.join(utils.DIRECTORY, self.org_type))
             images_paths = data_prepare.load_paths(self.org_type + '/', limit=self.img_limit)
-            brightfield_imgs, fluorescent_imgs = data_prepare.separate_data(images_paths, self.img_size,slice_by_brightest=True)
+            brightfield_imgs, fluorescent_imgs = data_prepare.separate_data(images_paths, self.img_size, slice_by_brightest=True)
             utils.save_numpy_array(brightfield_imgs, self.input_img_array_path)
             utils.save_numpy_array(fluorescent_imgs, self.output_img_array_path)
 

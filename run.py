@@ -1,20 +1,14 @@
-import numpy as np
-import data_prepare
+from helpers import data_prepare, utils
 from sklearn.model_selection import train_test_split
-import utils
-from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
-from DataGeneration.DataGenPreparation.BasicDataGenPreparation import BasicDataGeneratorPreparation
-from DataGeneration.DataGenerator.TestDataGen import TestDataGenerator
-from DataGeneration.DataGenerator.TrainDataGen import TrainDataGenerator
-from Img2ImgAE.autoEncoder import AutoEncoder
+from models.CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
+from models.Img2ImgAE.autoEncoder import AutoEncoder
 from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import backend as KB
 import pandas as pd
 from argparse import ArgumentParser
 # from CrossDomainAE.crossDomainAE import AutoEncoderCrossDomain
-from UNET.Unet import Unet
-
+from models.UNET.Unet import Unet
 
 # interpreter_path = /home/<username>/.conda/envs/<env name>/bin/python - change your user !!
 # interpreter_path_omer  = /home/omertag/.conda/envs/my_env/bin/python
@@ -23,34 +17,15 @@ METADATA_CSV_PATH = "/sise/assafzar-group/assafzar/fovs/metadata.csv"
 PATCH_SIZE = (3, 64, 64)  # (x,y,z)
 FULL_IMG_SIZE = (3, 640, 896)
 
+
 def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=None, img_read_limit=150,
         load_model_date=None, over_lap=1, multiply_img_z=1):
-
     utils.set_dir(dir)
     patch_size_rev = (PATCH_SIZE[1], PATCH_SIZE[2], PATCH_SIZE[0])
     start = datetime.now()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-    print("reading images")
-    paths = data_prepare.load_paths(org_type, limit=img_read_limit)
-    if read_img and org_type:
-        data_input, data_output = data_prepare.separate_data(paths,
-                                                             PATCH_SIZE, multiply_img_z=multiply_img_z)
-        utils.save_numpy_array_v2(data_input, "input_after_prepare_%d_images_%d_z_layer" % (img_read_limit, 3*multiply_img_z), "%s_data" % org_type)
-        utils.save_numpy_array_v2(data_output, "output_after_prepare_%d_images_%d_z_layer" % (img_read_limit, 3*multiply_img_z), "%s_data" % org_type)
-        # utils.save_numpy_array(data_input, "input_images_after_data_prepare_norm")
-        # utils.save_numpy_array(data_output, "output_images_after_data_prepare_norm")
-        print("Saved successfully numpy array at /home/%s/%s_data" % (utils.USER, org_type))
-    else:
-        data_input = utils.load_numpy_array_v2("input_after_prepare_%d_images_%d_z_layer.npy" % (img_read_limit, 3*multiply_img_z), "%s_data" % org_type)
-        data_output = utils.load_numpy_array_v2("output_after_prepare_%d_images_%d_z_layer.npy" % (img_read_limit, 3*multiply_img_z), "%s_data" % org_type)
-        # data_input = utils.load_numpy_array("input_images_after_data_prepare_norm.npy")
-        # data_output = utils.load_numpy_array("output_images_after_data_prepare_norm.npy")
-        print("Loaded successfully %d images as numpy array from /home/%s/%s_data" % (len(data_output), utils.USER, org_type))
 
-    data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
-    data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
-    input_tuple_list = list(zip(data_input, paths))
-    output_tuple_list = list(zip(data_output, paths))
+    data_input, data_output = load_data(read_img, org_type, img_read_limit, multiply_img_z)
 
     train_x, test_x, train_y, test_y = train_test_split(data_input, data_output, test_size=0.2, random_state=3,
                                                         shuffle=True)
@@ -62,7 +37,18 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
 
     # Free up RAM in case the model definition cells were run multiple times
     KB.clear_session()
+    model = load_or_train_model(model_name, patch_size_rev, epochs, batch_size, load_model_date, patches_train_x,
+                                patches_train_y, start)
+    stop = datetime.now()
+    predict_images(model, test_x, test_y, model_name, org_type)
+    print('Done All, Time: ', stop - start)
+    utils.reset_dir()
 
+
+# interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
+
+def load_or_train_model(model_name, patch_size_rev, epochs, batch_size, load_model_date, patches_train_x,
+                        patches_train_y, start):
     print("init model")
     model = create_model(model_name, patch_size_rev=patch_size_rev, epochs=epochs, batch_size=batch_size)
 
@@ -78,16 +64,48 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
         stop = datetime.now()
         print('Done Load, Time: ', stop - start)
 
+    return model
+
+
+def load_data(read_img, org_type, img_read_limit, multiply_img_z):
+    print("reading images")
+    paths = data_prepare.load_paths(org_type, limit=img_read_limit)
+    if read_img and org_type:
+        data_input, data_output = data_prepare.separate_data(paths,
+                                                             PATCH_SIZE, multiply_img_z=multiply_img_z)
+        utils.save_numpy_array_v2(data_input,
+                                  "input_after_prepare_%d_images_%d_z_layer" % (img_read_limit, 3 * multiply_img_z),
+                                  "%s_data" % org_type)
+        utils.save_numpy_array_v2(data_output,
+                                  "output_after_prepare_%d_images_%d_z_layer" % (img_read_limit, 3 * multiply_img_z),
+                                  "%s_data" % org_type)
+        print("Saved successfully numpy array at /home/%s/%s_data" % (utils.USER, org_type))
+    else:
+        data_input = utils.load_numpy_array_v2(
+            "input_after_prepare_%d_images_%d_z_layer.npy" % (img_read_limit, 3 * multiply_img_z), "%s_data" % org_type)
+        data_output = utils.load_numpy_array_v2(
+            "output_after_prepare_%d_images_%d_z_layer.npy" % (img_read_limit, 3 * multiply_img_z),
+            "%s_data" % org_type)
+        print("Loaded successfully %d images as numpy array from /home/%s/%s_data" % (
+            len(data_output), utils.USER, org_type))
+
+    data_input = utils.transform_dimensions(data_input, [0, 2, 3, 1])
+    data_output = utils.transform_dimensions(data_output, [0, 2, 3, 1])
+    return data_input, data_output
+
+
+def predict_images(model, test_x, test_y, model_name, org_type):
     save_time = datetime.now().strftime("%H-%M_%d-%m-%Y")
     max_index = utils.calculate_pearson_for_all_images(model, test_x[:100], test_y[:100],
-                                           model_name=model_name, time=save_time, organelle=org_type)
+                                                       model_name=model_name, time=save_time, organelle=org_type)
 
     print("Generate new pic")
     predicted_img = model.predict([test_x[max_index]])
-    predicted_img_smooth = model.predict_smooth([test_x[max_index]]) # only if you implanted smooth predict
+    predicted_img_smooth = model.predict_smooth([test_x[max_index]])  # only if you implanted smooth predict
     print("Saving .........")
     utils.save_np_as_tiff(predicted_img, save_time, "best_predict", model_name)
-    utils.save_np_as_tiff(predicted_img_smooth, save_time, "best_predict_smooth", model_name) # only if you implanted smooth predict
+    utils.save_np_as_tiff(predicted_img_smooth, save_time, "best_predict_smooth",
+                          model_name)  # only if you implanted smooth predict
     utils.save_np_as_tiff(test_x[max_index], save_time, "best_input", model_name)
     utils.save_np_as_tiff(test_y[max_index], save_time, "best_ground_truth", model_name)
 
@@ -101,50 +119,7 @@ def run(dir, model_name, epochs=200, batch_size=32, read_img=False, org_type=Non
     utils.save_np_as_tiff(test_x[0], save_time, "0_input", model_name)
     utils.save_np_as_tiff(test_y[0], save_time, "0_ground_truth", model_name)
 
-
     print("... All tiffs saved !!")
-    stop = datetime.now()
-    print('Done All, Time: ', stop - start)
-    utils.reset_dir()
-
-# interpreter_path = /home/omertag/.conda/envs/my_env/bin/python - change your user !!
-
-
-
-def cmd_helper_script():
-    load = None
-    org = None
-    while load not in ["y", "Y", "n", "N"]:
-        print("Do you need to load new images? [y/n]")
-        load = input()
-    if load in ["y", "Y"]:
-        print("Please select organelle name for this list:")
-        print("---------------")
-        matadata_df = pd.read_csv(METADATA_CSV_PATH)
-        all_org = list(set(matadata_df['StructureDisplayName']))
-        all_org.remove("None")
-        for i in range(0, len(all_org), 3):
-            print(', '.join(all_org[i:i + 3]))
-        print("---------------")
-        org = input()
-        while org not in all_org:
-            print("please enter valid name from the list above:")
-            org = input()
-    print("how many epochs?")
-    epochs = int(input())
-    print("what is the batch size?")
-    batch_size = int(input())
-    read_img = True if load in ["y", "Y"] else False
-    print("Directory name?")
-    dir_name = input()
-
-    run(dir=dir_name, model_name="img2img", epochs=epochs, batch_size=batch_size, read_img=read_img, org_type=org,
-        img_read_limit=150)
-
-    # print_full(matadata_df)
-    # print_full((matadata_df.head()))
-    # ['StructureDisplayName']
-    # ['ChannelNumberBrightfield']
 
 
 def create_model(name: str, patch_size_rev, epochs, batch_size):
@@ -166,15 +141,6 @@ def create_model(name: str, patch_size_rev, epochs, batch_size):
         return None
     else:
         return None
-    # case = {
-    #     "img2img": AutoEncoder(img_size_rev, epochs=epochs, batch_size=batch_size),
-    #     # "crossdomain": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
-    #     "B2B": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
-    #     "F2F": AutoEncoderCrossDomain(img_size_rev, epochs=epochs, batch_size=batch_size),
-    #     "unet": Unet(img_size_rev, epochs=epochs, batch_size=batch_size),
-    #     "pix2pix": None
-    # }
-    # return case.get(name, None)
 
 
 def parse_command_line():
@@ -195,7 +161,6 @@ def parse_command_line():
         read_img=args.read_img, org_type=args.org_type[0], img_read_limit=args.read_limit)
 
 
-
 def run_all_orgs(selected_model_name: str, best_orgs_dict: dict,
                  epochs=100, batch_size=32, read_img=True, img_read_limit=150, multiply_img_z=2):
     """
@@ -214,7 +179,6 @@ def run_all_orgs(selected_model_name: str, best_orgs_dict: dict,
     start_all = datetime.now()
 
     for organelle, model_date in best_orgs_dict.items():
-
         working_org = "----- Working on organelle: %s -----" % organelle
         print(len(working_org) * "-")
         print(working_org)
@@ -222,8 +186,10 @@ def run_all_orgs(selected_model_name: str, best_orgs_dict: dict,
 
         model_dir = "/%s_%s_%s/" % (selected_model_name, organelle, model_date) if model_date else None
 
-        run(dir="%s_%s" % (selected_model_name, organelle), model_name=selected_model_name, epochs=epochs, batch_size=batch_size,
-            read_img=read_img, org_type=organelle, img_read_limit=img_read_limit, load_model_date=model_dir, multiply_img_z=multiply_img_z)
+        run(dir="%s_%s" % (selected_model_name, organelle), model_name=selected_model_name, epochs=epochs,
+            batch_size=batch_size,
+            read_img=read_img, org_type=organelle, img_read_limit=img_read_limit, load_model_date=model_dir,
+            multiply_img_z=multiply_img_z)
 
         done_org = "***** Done organelle: %s *****" % organelle
         print(len(done_org) * "*")
@@ -235,7 +201,6 @@ def run_all_orgs(selected_model_name: str, best_orgs_dict: dict,
 
 
 if __name__ == '__main__':
-
     # todo please change your run params here
     # see run_all_orgs function and documentation
     # you can copy model name from here
@@ -247,24 +212,24 @@ if __name__ == '__main__':
 
     # todo please comment/uncomment your selected Organelle !!
     best_orgs = {
-         # "Mitochondria": None, #"18-05-2022_21-48",
-         # "Microtubules": None, #"18-05-2022_23-34",
-         # "Endoplasmic-reticulum": None, #"19-05-2022_01-59",
-         # "Nuclear-envelope": None, #"19-05-2022_04-16",
-         # "Actin-filaments": None, #"18-05-2022_05-11"
-         # "Tight-junctions": None,
-         # "Nucleolus-(Dense-Fibrillar-Component)": None,
-         # "Peroxisomes": None, ## Need to find br and fl channel before run!!
-         # "Golgi": None,
-         # "Endosomes": None, ## Need to find br and fl channel before run!!
-         "Gap-junctions": None,
-         "Lysosome": None,
-         "Adherens junctions": None,
-         "Nucleolus-(Granular-Component)": None,
-         "Matrix-adhesions": None,
-         "Actomyosin-bundles": None,
-         "Desmosomes": None,
-         "Plasma-membrane": None
+        # "Mitochondria": None, #"18-05-2022_21-48",
+        # "Microtubules": None, #"18-05-2022_23-34",
+        # "Endoplasmic-reticulum": None, #"19-05-2022_01-59",
+        # "Nuclear-envelope": None, #"19-05-2022_04-16",
+        # "Actin-filaments": None, #"18-05-2022_05-11"
+        # "Tight-junctions": None,
+        # "Nucleolus-(Dense-Fibrillar-Component)": None,
+        # "Peroxisomes": None, ## Need to find br and fl channel before run!!
+        # "Golgi": None,
+        # "Endosomes": None, ## Need to find br and fl channel before run!!
+        "Gap-junctions": None,
+        "Lysosome": None,
+        "Adherens junctions": None,
+        "Nucleolus-(Granular-Component)": None,
+        "Matrix-adhesions": None,
+        "Actomyosin-bundles": None,
+        "Desmosomes": None,
+        "Plasma-membrane": None
     }
 
     # for org, val in best_orgs.items():
@@ -280,4 +245,3 @@ if __name__ == '__main__':
     # organelle = "Mitochondria"
     # run(dir="%s_%s" % (selected_model, organelle), model_name=selected_model, epochs=100, batch_size=32, read_img=True,
     #     org_type=organelle, img_read_limit=200, multiply_img_z=4)
-

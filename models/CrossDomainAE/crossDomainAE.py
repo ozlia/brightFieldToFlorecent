@@ -1,13 +1,9 @@
 from tensorflow import keras
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, BatchNormalization, Dropout
-from tensorflow.keras.callbacks import CSVLogger
-from patchify import unpatchify
-from datetime import datetime
-import utils
-from ICNN import ICNN
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, BatchNormalization
+from helpers import utils
+from models.ICNN import ICNN
 import getpass
 import os
-import numpy as np
 
 
 class AutoEncoderCrossDomain(ICNN):

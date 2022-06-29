@@ -4,7 +4,7 @@ from datetime import datetime
 from tensorflow.keras.callbacks import CSVLogger
 from tensorflow.keras import callbacks
 from patchify import unpatchify
-import utils
+from helpers import utils
 from tensorflow.keras import models
 
 from tensorflow.keras.mixed_precision import experimental as policy_handler
@@ -12,7 +12,7 @@ policy_name = 'mixed_float16' #'float16'
 policy = policy_handler.Policy(policy_name)
 policy_handler.set_policy(policy)
 
-from smooth_tiled_predictions import predict_img_with_smooth_windowing
+from helpers.smooth_tiled_predictions import predict_img_with_smooth_windowing
 
 class ICNN(ABC):
 

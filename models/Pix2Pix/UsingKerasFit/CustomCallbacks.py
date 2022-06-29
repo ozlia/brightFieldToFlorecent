@@ -1,4 +1,4 @@
-import utils
+from helpers import utils
 
 
 class PerformancePlotCallback(keras.callbacks.Callback):

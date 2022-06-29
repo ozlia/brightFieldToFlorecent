@@ -1,5 +1,5 @@
 from tensorflow import keras
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose
 from tensorflow.keras.callbacks import CSVLogger
 from patchify import unpatchify
 from datetime import datetime
@@ -8,8 +8,8 @@ from tensorflow.keras import regularizers
 from tensorflow.keras.layers import BatchNormalization, Dropout
 from tensorflow.keras.constraints import unit_norm
 
-import utils
-from ICNN import ICNN
+from helpers import utils
+from models.ICNN import ICNN
 import getpass
 import os
 

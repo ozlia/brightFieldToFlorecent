@@ -1,9 +1,9 @@
-from ICNN import ICNN
+from models.ICNN import ICNN
 import getpass
 import os
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, Dense, Flatten, Lambda, Reshape, BatchNormalization, Dropout
+from tensorflow.keras.layers import Conv2D
 from tensorflow.keras import Model, Input, backend, models
-import utils
+from helpers import utils
 
 
 class CrossDomain(ICNN):

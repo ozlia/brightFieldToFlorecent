@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 
-import utils
+from helpers import utils
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
     Activation, Flatten, Dense
@@ -13,8 +13,8 @@ import numpy as np
 import os
 import pandas as pd
 
-from Pix2Pix.BeforeDataGen.data_handler import data_handler
-from UNET.Unet import Unet
+from models.Pix2Pix.BeforeDataGen.data_handler import data_handler
+from models.UNET.Unet import Unet
 
 from tensorflow.keras.mixed_precision import experimental as policy_handler
 policy_name = 'mixed_float16' #'float16'
@@ -228,7 +228,7 @@ class Pix2Pix:
         brightfield, fluorescent = self.data_handler.load_images_as_batches(batch_size=1,
                                                                             sample_size=self.nImages_to_sample).__next__()
         fig_name = f'e{epoch}_b{batch_i}.png'
-        utils.sample_images(self.generator, brightfield, fluorescent, fig_name=fig_name, rescale=False,target_dir=self.data_handler.org_type)
+        utils.sample_images(self.generator, brightfield, fluorescent, fig_name=fig_name, rescale=False, target_dir=self.data_handler.org_type)
 
     def save_model_and_progress_report(self, target_path=None):
         if target_path is None:

@@ -1,10 +1,10 @@
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, LeakyReLU, Dropout, concatenate, MaxPooling2D, Input, \
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose, Dropout, concatenate, Input, \
     MaxPool2D, BatchNormalization, ReLU
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model
 
-import utils
-from ICNN import ICNN
+from helpers import utils
+from models.ICNN import ICNN
 import getpass
 import os
 

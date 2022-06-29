@@ -1,2 +1,0 @@
-Best results:
-AE - 06/01/2022 - we have reached to the best results for Autoencoder model while Hackathon.

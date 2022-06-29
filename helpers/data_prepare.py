@@ -6,7 +6,6 @@ from enum import Enum
 from datetime import datetime, timedelta
 import utils
 import pandas as pd
-import csv
 
 TIFF_DF = pd.DataFrame()
 

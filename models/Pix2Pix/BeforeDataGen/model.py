@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 
-import utils
+from helpers import utils
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
     Activation, Flatten, Dense
@@ -13,7 +13,7 @@ import numpy as np
 import os
 import pandas as pd
 
-from Pix2Pix.BeforeDataGen.data_handler import data_handler
+from models.Pix2Pix.BeforeDataGen.data_handler import data_handler
 
 
 class Pix2Pix:

@@ -1,13 +1,11 @@
 import json
 import shutil
 from datetime import datetime
-from os import path, makedirs, listdir, chdir, getcwd, walk
+from os import path, makedirs, listdir, chdir, getcwd
 import pandas as pd
-from keras_preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
 import numpy as np
-import utils
-import data_prepare
+from helpers import data_prepare, utils
 
 
 class DataGeneratorPreparation:  # better as a class - can be easily replaced with regular preparation

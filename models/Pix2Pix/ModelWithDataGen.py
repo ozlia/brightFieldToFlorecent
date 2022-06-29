@@ -1,14 +1,11 @@
 from __future__ import print_function, division
 
-import data_prepare
-import utils
+from helpers import utils
 from tensorflow.keras.models import Model, load_model, save_model
 from tensorflow.keras.layers import Input, Dropout, Concatenate, BatchNormalization, LeakyReLU, UpSampling2D, Conv2D, \
     Activation, Flatten, Dense
 from tensorflow.keras.optimizers import Adam
-from skimage.metrics import peak_signal_noise_ratio as peak_snr, structural_similarity as ssim, \
-    mean_squared_error as mse
-import sys
+from skimage.metrics import structural_similarity as ssim
 import datetime
 import numpy as np
 import os
@@ -341,10 +338,10 @@ if __name__ == '__main__':
 
 
     print('done saving, starting to allocate data gens')
-    train_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
-                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img)
-    test_data_gen = TestDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
-                                  batch_size=batch_size, num_patches_in_img=num_patches_in_img)
+    train_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath, data_root_path=utils.get_dir(org_type), num_epochs=epochs,
+                                        batch_size=batch_size, num_patches_in_img=num_patches_in_img)
+    test_data_gen = TestDataGenerator(meta_data_fpath=dgp.images_mapping_fpath, data_root_path=utils.get_dir(org_type), num_epochs=epochs,
+                                      batch_size=batch_size, num_patches_in_img=num_patches_in_img)
     # if validation_size > 0:
     #     validation_data_gen = TrainDataGenerator(meta_data_fpath=dgp.images_mapping_fpath,data_root_path=utils.get_dir(org_type), num_epochs=epochs,
     #                                   batch_size=batch_size, num_patches_in_img=num_patches_in_img)
